@@ -1,0 +1,2 @@
+# Chave de exemplo padrao do OpenThread (00112233...) no sdkconfig de outra placa do xiaozhi
+main/boards/m5stack-tab5/sdkconfig.tab5:generic-api-key:2161

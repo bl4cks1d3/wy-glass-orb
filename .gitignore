@@ -1,0 +1,10 @@
+build/
+managed_components/
+sdkconfig.old
+build.log
+*.bin
+test/*/build/
+test/*/managed_components/
+test/*/build.log
+# Backup completo da placa: a NVS tem a senha do Wi-Fi. So a copia sem NVS (.bin.gz) vai para o git.
+backup/*.bin

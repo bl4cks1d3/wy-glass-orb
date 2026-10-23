@@ -17,7 +17,9 @@ jobs:
         with:
           esp_idf_version: v5.5
           target: esp32s3
-          command: idf.py build
+          # Sem a checagem de versoes novas do gerenciador de componentes: ela resolve as versoes
+          # mais recentes (nao as do dependencies.lock) e quebra num LV_USE_FREETYPE indefinido
+          command: IDF_COMPONENT_CHECK_NEW_VERSION=0 idf.py build
 
       - name: Binarios
         uses: actions/upload-artifact@v4

@@ -3,7 +3,7 @@
 ## Ambiente
 
 - ESP-IDF **5.5** (testado com o v5.5.5), alvo `esp32s3`. O `sdkconfig` versionado já tem a placa e as opções do orb.
-- Os componentes de `main/idf_component.yml` são baixados no primeiro build para `managed_components/` (fora do git). O `78/esp-wifi-connect` não é baixado: usa a cópia de `components/esp-wifi-connect` (`override_path`), com o portal em português.
+- Os componentes de `main/idf_component.yml` são baixados no primeiro build para `managed_components/` (fora do git). O `78/esp-wifi-connect` saiu do manifesto: a cópia em `components/esp-wifi-connect`, com o portal em português, entra como componente do projeto. Não use `override_path` para ele: o caminho absoluto vai para o `dependencies.lock` e quebra o build em outra máquina.
 
 ```bash
 idf.py build

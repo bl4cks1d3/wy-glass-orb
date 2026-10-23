@@ -12,10 +12,8 @@ dependencies:
   espressif/esp_io_expander_tca9554: ==2.0.0
   espressif/esp_lcd_panel_io_additions: ^1.0.1
   78/esp_lcd_nv3023: ~1.0.0
-  # Wy Glass: copia local com o portal traduzido (components/esp-wifi-connect)
-  78/esp-wifi-connect:
-    version: ~2.4.2
-    override_path: ../components/esp-wifi-connect
+  # Wy Glass: o 78/esp-wifi-connect nao e baixado; components/esp-wifi-connect (copia com o
+  # portal traduzido) entra como componente do projeto, sem caminho no dependencies.lock
   78/esp-opus-encoder: ~2.3.3
   78/esp-ml307: ~2.1.4
   78/xiaozhi-fonts: ~1.3.2

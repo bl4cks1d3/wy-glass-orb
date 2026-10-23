@@ -21,7 +21,7 @@ As mudanças estão marcadas com comentários `Wy Glass:` no código.
 | --- | --- |
 | `main/application.{h,cc}` | Sem ativação nem OTA do XiaoZhi (`CheckNewVersion` → `ConfigureServer`): o servidor é o endereço salvo no portal, com a porta 8733 se faltar; protocolo sempre WebSocket |
 | `main/boards/common/wifi_board.cc` | Portal `WyGlass-XXXX` sem alerta falado; sem endereço `ws://`/`wss://`, o portal fica no ar |
-| `components/esp-wifi-connect/` | Cópia local do `78/esp-wifi-connect` 2.4.3 (via `override_path` em `main/idf_component.yml`): portal em português com aba "Servidor", validação do endereço e reinício ao salvar |
+| `components/esp-wifi-connect/` | Cópia local do `78/esp-wifi-connect` 2.4.3 (removido de `main/idf_component.yml`; entra como componente do projeto): portal em português com aba "Servidor", validação do endereço e reinício ao salvar |
 
 ## Voz
 

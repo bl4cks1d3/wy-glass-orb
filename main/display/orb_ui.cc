@@ -1,6 +1,7 @@
 #include "orb_ui.h"
 #include "application.h"
 #include "board.h"
+#include "orb_studio_config.h"
 #include "settings.h"
 #include "system_info.h"
 
@@ -38,10 +39,11 @@ constexpr int kBox = 192;
 constexpr int kBoxX = 120 - kBox / 2;
 constexpr int kBoxY = 110 - kBox / 2;
 
-constexpr int kMeridians = 12;
+// Aparencia do globo e textos: main/orb_studio_config.h, gerado pelo Orb Studio
+constexpr int kMeridians = orb_studio::kMeridians;
 constexpr int kMeridianSamples = 280;
-constexpr int kDots = 50;
-constexpr float kBaseSpeed = 0.012f;  // rad por quadro (0,24 rad/s)
+constexpr int kDots = orb_studio::kDots;
+constexpr float kBaseSpeed = orb_studio::kBaseSpeed;  // rad por quadro (0,012 = 0,24 rad/s)
 
 struct Rgb {
     float r, g, b;
@@ -72,27 +74,29 @@ uint16_t Pack565(int r, int g, int b) {
     return (uint16_t)(((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3));
 }
 
-constexpr Rgb kLine = Hex(0x00D2FF);
+constexpr Rgb kLine = Hex(orb_studio::kLineColor);
 
 // Fundo e partes fixas do globo (esfera, paralelos, contorno) no pixel (x, y)
 Rgb StaticPixel(int x, int y) {
     float px = x + 0.5f, py = y + 0.5f;
 
     float bg_t = std::hypot(px - 120.0f, py - 120.0f) / 170.0f;
-    Rgb c = Gradient(Hex(0x071B2C), Hex(0x020711), Hex(0x010208), 0.45f, bg_t);
+    Rgb c = Gradient(Hex(orb_studio::kBackground[0]), Hex(orb_studio::kBackground[1]),
+                     Hex(orb_studio::kBackground[2]), 0.45f, bg_t);
 
     float dx = px - kCx, dy = py - kCy;
     float d = std::hypot(dx, dy);
 
     // Brilho difuso atras do orb
     float halo = 0.12f * std::exp(-(d / (1.05f * kR)) * (d / (1.05f * kR)) * 2.0f);
-    c = Add(c, Hex(0x00BFFF), halo);
+    c = Add(c, Hex(orb_studio::kHaloColor), halo);
 
     float inside = std::clamp(kR + 0.5f - d, 0.0f, 1.0f);
     if (inside > 0) {
         float gx = kCx - 0.3f * kR, gy = kCy - 0.35f * kR;
         float t = std::hypot(px - gx, py - gy) / (1.3f * kR);
-        Rgb sphere = Gradient(Hex(0x0A2940), Hex(0x041522), Hex(0x01060D), 0.65f, t);
+        Rgb sphere = Gradient(Hex(orb_studio::kSphere[0]), Hex(orb_studio::kSphere[1]),
+                              Hex(orb_studio::kSphere[2]), 0.65f, t);
 
         // Paralelos: linhas horizontais dentro da esfera
         for (int i = -5; i <= 5; i++) {
@@ -133,9 +137,9 @@ lv_obj_t* MakeCircle(lv_obj_t* parent, int diameter, lv_color_t color) {
     return obj;
 }
 
-const lv_color_t kCyan = lv_color_hex(0x00D2FF);
+const lv_color_t kCyan = lv_color_hex(orb_studio::kLineColor);
 const lv_color_t kRed = lv_color_hex(0xEF4444);
-const lv_color_t kLabel = lv_color_hex(0x48DFFF);
+const lv_color_t kLabel = lv_color_hex(orb_studio::kLabelColor);
 
 }  // namespace
 
@@ -151,7 +155,7 @@ OrbUi::OrbUi(lv_obj_t* parent) {
     BuildGlobe();
     BuildConfig();
     BuildInfo();
-    lv_label_set_text(label_, "INICIANDO");
+    lv_label_set_text(label_, orb_studio::kStarting.text);
     lv_timer_create(OnTimer, kTickMs, this);
 }
 
@@ -270,7 +274,7 @@ void OrbUi::BuildInfo() {
     lv_obj_set_style_arc_opa(ring, LV_OPA_40, LV_PART_MAIN);
 
     lv_obj_t* title = MakeLabel(info_, kLabel, 3);
-    lv_label_set_text(title, "WY GLASS ORB");
+    lv_label_set_text(title, orb_studio::kTitle);
     lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 20);
 
     info_text_ = MakeLabel(info_, lv_color_hex(0xCBD5E1), 0);
@@ -471,40 +475,39 @@ void OrbUi::ApplyState(int state) {
         lv_obj_add_flag(mic_ring_, LV_OBJ_FLAG_HIDDEN);
     }
 
-    tint_ = kCyan;
-    brightness_ = 1.0f;
+    auto use = [this](const orb_studio::StateStyle& style, const char* text) {
+        tint_ = lv_color_hex(style.color);
+        speed_ = style.speed;
+        brightness_ = style.brightness;
+        pulse_ = style.pulse;
+        pulse_period_ms_ = style.period_ms > 0 ? style.period_ms : 1000;
+        lv_label_set_text(label_, text);
+    };
     switch (state) {
         case kDeviceStateStarting:
-            speed_ = 3.0f; pulse_ = 0.25f; pulse_period_ms_ = 1500;
-            lv_label_set_text(label_, wifi_connected_ ? "WI-FI OK" : "CONECTANDO WI-FI");
+            use(orb_studio::kStarting, wifi_connected_ ? orb_studio::kStartingReadyText : orb_studio::kStarting.text);
             break;
         case kDeviceStateWifiConfiguring:
             speed_ = 1.0f; pulse_ = 0.0f;
             break;
         case kDeviceStateIdle: {
-            speed_ = 1.0f; pulse_ = 0.08f; pulse_period_ms_ = 4000;
             Settings websocket("websocket", false);
-            lv_label_set_text(label_, websocket.GetString("url").empty() ? "SEM SERVIDOR" : "ONLINE");
+            use(orb_studio::kIdle, websocket.GetString("url").empty() ? orb_studio::kIdleNoServerText : orb_studio::kIdle.text);
             break;
         }
         case kDeviceStateConnecting:
         case kDeviceStateActivating:
         case kDeviceStateUpgrading:
-            speed_ = 4.0f; pulse_ = 0.2f; pulse_period_ms_ = 1200;
-            lv_label_set_text(label_, "CONECTANDO");
+            use(orb_studio::kConnecting, orb_studio::kConnecting.text);
             break;
         case kDeviceStateListening:
-            speed_ = 1.5f; brightness_ = 1.3f; pulse_ = 0.3f; pulse_period_ms_ = 900;
-            lv_label_set_text(label_, "OUVINDO");
+            use(orb_studio::kListening, orb_studio::kListening.text);
             break;
         case kDeviceStateSpeaking:
-            speed_ = 2.0f; brightness_ = 1.3f; pulse_ = 0.5f; pulse_period_ms_ = 500;
-            lv_label_set_text(label_, "FALANDO");
+            use(orb_studio::kSpeaking, orb_studio::kSpeaking.text);
             break;
         case kDeviceStateFatalError:
-            tint_ = kRed;
-            speed_ = 0.3f; pulse_ = 0.0f;
-            lv_label_set_text(label_, "ERRO");
+            use(orb_studio::kError, orb_studio::kError.text);
             break;
         default:
             break;
@@ -527,7 +530,7 @@ void OrbUi::Tick() {
     }
     if (error_pending_.exchange(false)) {
         lv_obj_remove_flag(error_dot_, LV_OBJ_FLAG_HIDDEN);
-        lv_label_set_text(label_, "SERVIDOR OFFLINE");
+        lv_label_set_text(label_, orb_studio::kOfflineText);
     }
 
     ticks_++;

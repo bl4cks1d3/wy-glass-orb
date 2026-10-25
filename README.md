@@ -35,11 +35,22 @@ Antes da primeira gravação, faça o backup da placa de fábrica ([backup/READM
 
 Depois de gravar, siga o [primeiro uso](docs/primeiro-uso.md): conectar pelo QR, informar o Wi-Fi e o servidor (`ws://<ip-do-servidor>:8733/orb`).
 
+## Orb Studio
+
+Para personalizar o orb, compilar, gravar e desenhar telas sem terminal:
+
+```bash
+python studio/server.py
+```
+
+Abre um ambiente visual no navegador, com pré-visualização da tela redonda ([docs/studio.md](docs/studio.md)).
+
 ## Documentação
 
 | Documento | Conteúdo |
 | --- | --- |
 | [Primeiro uso](docs/primeiro-uso.md) | Gravar, configurar Wi-Fi e servidor pelo portal, trocar depois |
+| [Orb Studio](docs/studio.md) | Personalizar, compilar, gravar e desenhar telas pelo navegador |
 | [Uso](docs/uso.md) | Telas, estados, gestos, voz, bateria, informações |
 | [Servidor](docs/servidor.md) | O `orb_gateway` do Wy Glass, protocolo WebSocket, teste de conexão |
 | [Hardware](docs/hardware.md) | Pinos, partições, memória |

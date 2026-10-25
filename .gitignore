@@ -8,3 +8,4 @@ test/*/managed_components/
 test/*/build.log
 # Backup completo da placa: a NVS tem a senha do Wi-Fi. So a copia sem NVS (.bin.gz) vai para o git.
 backup/*.bin
+__pycache__/

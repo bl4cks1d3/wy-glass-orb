@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Orb Studio</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header>
+  <div class="brand"><span class="brand-dot"></span>Orb Studio</div>
+  <nav role="tablist">
+    <button role="tab" data-tab="customize" aria-selected="true">Personalizar</button>
+    <button role="tab" data-tab="layouts" aria-selected="false">Telas</button>
+    <button role="tab" data-tab="build" aria-selected="false">Compilar e gravar</button>
+  </nav>
+  <div class="header-info" id="header-info">carregando…</div>
+</header>
+
+<main>
+  <!-- ======================= PERSONALIZAR ======================= -->
+  <section class="tab active grid-preview" id="tab-customize">
+    <div>
+      <div class="panel">
+        <h2>Identidade</h2>
+        <div class="fields">
+          <label class="field">Título da tela de informações
+            <input type="text" data-path="title" maxlength="24"></label>
+          <label class="field">Rede do portal (prefixo)
+            <input type="text" data-path="ap_prefix" maxlength="20"></label>
+          <label class="field wide">Servidor padrão <small>(vazio = pedir no portal)</small>
+            <input type="text" data-path="default_server" placeholder="ws://192.168.0.35:8733/orb"></label>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Ativação por voz <small>MultiNet7 em inglês, no chip</small></h2>
+        <label class="toggle"><input type="checkbox" data-path="wake.enabled"> Ativar por voz</label>
+        <div class="fields" style="margin-top:12px">
+          <label class="field wide">Frases, separadas por vírgula
+            <input type="text" id="wake-phrases" placeholder="hey orb, hi orb"></label>
+          <label class="field wide">Limiar de detecção <small>(menor = ativa mais fácil e erra mais)</small>
+            <span class="range-row"><input type="range" min="1" max="99" step="1" data-path="wake.threshold"><output></output></span></label>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Globo</h2>
+        <div class="fields">
+          <label class="field">Meridianos
+            <span class="range-row"><input type="range" min="2" max="24" step="1" data-path="globe.meridians"><output></output></span></label>
+          <label class="field">Pontos luminosos
+            <span class="range-row"><input type="range" min="0" max="120" step="1" data-path="globe.dots"><output></output></span></label>
+          <label class="field">Velocidade base
+            <span class="range-row"><input type="range" min="0" max="0.05" step="0.001" data-path="globe.base_speed"><output></output></span></label>
+          <label class="field">Cor das linhas fixas
+            <input type="color" data-path="globe.line_color"></label>
+          <label class="field">Brilho em volta
+            <input type="color" data-path="globe.halo_color"></label>
+          <label class="field">Cor dos textos
+            <input type="color" data-path="globe.label_color"></label>
+          <label class="field">Fundo (centro, meio, borda)
+            <span class="colors3"><input type="color" data-path="globe.background.0"><input type="color" data-path="globe.background.1"><input type="color" data-path="globe.background.2"></span></label>
+          <label class="field">Esfera (luz, meio, sombra)
+            <span class="colors3"><input type="color" data-path="globe.sphere.0"><input type="color" data-path="globe.sphere.1"><input type="color" data-path="globe.sphere.2"></span></label>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Estados</h2>
+        <div class="segmented" id="state-tabs"></div>
+        <div class="fields" id="state-fields"></div>
+        <div class="fields" style="margin-top:12px">
+          <label class="field">Texto quando a conexão falha
+            <input type="text" data-path="offline_text" maxlength="24"></label>
+        </div>
+        <p class="hint">Os textos aparecem sem acentos: a fonte do globo só tem ASCII.</p>
+      </div>
+    </div>
+
+    <div class="device-wrap">
+      <div class="panel">
+        <div class="segmented" id="screen-tabs">
+          <button data-screen="globe" aria-pressed="true">Globo</button>
+          <button data-screen="config" aria-pressed="false">Configuração</button>
+          <button data-screen="info" aria-pressed="false">Informações</button>
+        </div>
+        <div class="device"><div class="screen"><canvas id="preview" width="240" height="240"></canvas></div></div>
+        <div class="device-caption" id="preview-caption">Pré-visualização em 240×240, como na placa</div>
+        <div class="segmented" id="preview-states" style="justify-content:center;margin-top:12px"></div>
+        <div class="actions" style="justify-content:center;margin-top:8px">
+          <span class="dirty" id="dirty" hidden>alterações não aplicadas</span>
+        </div>
+        <div class="actions" style="justify-content:center;margin-top:8px">
+          <button class="btn" id="btn-reset">Restaurar padrão</button>
+          <button class="btn" id="btn-save">Salvar</button>
+          <button class="btn primary" id="btn-apply">Aplicar no firmware</button>
+        </div>
+        <p class="hint" style="text-align:center">Aplicar gera <code>main/orb_studio_config.h</code> e atualiza o <code>sdkconfig</code>. Depois, compile e grave.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= TELAS ======================= -->
+  <section class="tab layout-grid" id="tab-layouts">
+    <div>
+      <div class="panel">
+        <h2>Telas salvas</h2>
+        <ul class="saved-list" id="saved-layouts"></ul>
+        <div class="actions" style="margin-top:10px"><button class="btn" id="btn-new-layout">Nova tela</button></div>
+      </div>
+      <div class="panel">
+        <h2>Elementos <small>arraste para a tela</small></h2>
+        <div class="palette" id="palette">
+          <div class="chip" draggable="true" data-kind="title">Título</div>
+          <div class="chip" draggable="true" data-kind="body">Texto</div>
+          <div class="chip" draggable="true" data-kind="item">Caixa de seleção</div>
+          <div class="chip" draggable="true" data-kind="button">Botão</div>
+          <div class="chip" draggable="true" data-kind="progress">Progresso</div>
+          <div class="chip" draggable="true" data-kind="timer">Timer</div>
+        </div>
+        <p class="hint">A placa empilha sempre na mesma ordem: título, texto, caixas, progresso, timer, botões. Caixas e botões podem ser reordenados arrastando.</p>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel">
+        <h2>Tela</h2>
+        <div class="fields">
+          <label class="field">Nome do arquivo
+            <input type="text" id="layout-name" placeholder="confirmar-email"></label>
+          <label class="field">id (volta nos eventos)
+            <input type="text" id="layout-id" maxlength="40"></label>
+          <label class="field">Fecha sozinha após (s)
+            <input type="number" id="layout-timeout" min="0" max="600" placeholder="0 = não fecha"></label>
+          <label class="toggle" style="align-self:end"><input type="checkbox" id="layout-close"> Fecha ao tocar num botão</label>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>Elementos da tela</h2>
+        <div class="element-list" id="element-list"></div>
+      </div>
+    </div>
+
+    <div class="device-wrap">
+      <div class="panel">
+        <div class="device"><div class="screen"><div class="layout-screen" id="layout-preview"></div></div></div>
+        <div class="device-caption" id="layout-caption"></div>
+        <label class="field" style="margin-top:12px">JSON para <code>self.screen.render</code>
+          <textarea id="layout-json" rows="12" spellcheck="false"></textarea></label>
+        <div class="actions" style="margin-top:10px">
+          <button class="btn" id="btn-copy-layout">Copiar JSON</button>
+          <button class="btn" id="btn-download-layout">Baixar</button>
+          <button class="btn primary" id="btn-save-layout">Salvar tela</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= COMPILAR E GRAVAR ======================= -->
+  <section class="tab build-grid" id="tab-build">
+    <div>
+      <div class="panel">
+        <h2>Placa</h2>
+        <label class="field">Porta
+          <select id="port"></select></label>
+        <div class="actions" style="margin-top:8px"><button class="btn" id="btn-ports">Atualizar portas</button></div>
+        <p class="hint" id="port-hint"></p>
+      </div>
+      <div class="panel">
+        <h2>Firmware</h2>
+        <label class="toggle"><input type="checkbox" id="apply-first" checked> Aplicar a personalização antes</label>
+        <div class="actions" style="margin-top:12px">
+          <button class="btn" data-job="build">Compilar</button>
+          <button class="btn" data-job="flash">Gravar</button>
+          <button class="btn primary" data-job="build_flash">Compilar e gravar</button>
+        </div>
+        <div class="actions" style="margin-top:8px">
+          <button class="btn danger" id="btn-stop" disabled>Parar</button>
+          <button class="btn" data-job="fullclean">Limpar build</button>
+        </div>
+        <p class="hint">O primeiro build baixa os componentes e leva alguns minutos; os seguintes, menos de um.</p>
+      </div>
+      <div class="panel">
+        <h2>Monitor serial</h2>
+        <div class="actions">
+          <button class="btn" id="btn-monitor">Abrir monitor</button>
+          <button class="btn" id="btn-monitor-reset">Reiniciar a placa e abrir</button>
+        </div>
+        <p class="hint">A gravação fecha o monitor sozinha, porque usa a mesma porta.</p>
+      </div>
+    </div>
+    <div>
+      <div class="console-head">
+        <span class="status-chip" id="job-status">pronto</span>
+        <div class="segmented" id="console-filter">
+          <button data-filter="all" aria-pressed="true">Tudo</button>
+          <button data-filter="job" aria-pressed="false">Build</button>
+          <button data-filter="serial" aria-pressed="false">Serial</button>
+        </div>
+        <label class="toggle" style="margin-left:auto"><input type="checkbox" id="autoscroll" checked> Rolar sozinho</label>
+        <button class="btn" id="btn-clear">Limpar</button>
+      </div>
+      <div class="console" id="console"></div>
+    </div>
+  </section>
+</main>
+
+<div class="toast" id="toast"></div>
+<script src="globe.js"></script>
+<script src="layouts.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

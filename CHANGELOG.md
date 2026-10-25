@@ -1,5 +1,11 @@
 # Changelog
 
+## Não lançado
+
+- **Orb Studio** (`studio/`): ambiente visual no navegador para personalizar o globo, a ativação por voz e a rede do portal com pré-visualização, compilar, gravar, ver o log serial e desenhar telas interativas.
+- Aparência, textos, prefixo da rede do portal e servidor padrão saem de `main/orb_studio_config.h`, gerado pelo Studio. Os valores padrão deixam o orb igual ao 0.2.0.
+- Servidor padrão: com ele preenchido, o orb conecta sem pedir o endereço no portal.
+
 ## 0.2.0 — 2026-10-23
 
 - Bateria no topo do globo (ADC do GPIO1, carregando pelo GPIO41).

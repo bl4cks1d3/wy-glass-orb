@@ -6,6 +6,7 @@
 #include "font_awesome_symbols.h"
 #include "settings.h"
 #include "assets/lang_config.h"
+#include "orb_studio_config.h"
 
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
@@ -41,7 +42,7 @@ void WifiBoard::EnterWifiConfigMode() {
 
     auto& wifi_ap = WifiConfigurationAp::GetInstance();
     wifi_ap.SetLanguage(Lang::CODE);
-    wifi_ap.SetSsidPrefix("WyGlass");
+    wifi_ap.SetSsidPrefix(orb_studio::kApPrefix);
     wifi_ap.Start();
 
     // Wy Glass: a tela de configuracao (QR da rede + endereco do portal) e
@@ -77,6 +78,9 @@ void WifiBoard::StartNetwork() {
     // Wy Glass: sem endereco ws:// ou wss:// do servidor, o portal fica no ar
     Settings wifi_settings("wifi", false);
     std::string server = wifi_settings.GetString("ota_url");
+    if (server.empty()) {
+        server = orb_studio::kDefaultServer;  // servidor padrao do Orb Studio, se houver
+    }
     if (server.rfind("ws://", 0) != 0 && server.rfind("wss://", 0) != 0) {
         ESP_LOGW(TAG, "Servidor invalido ou vazio (\"%s\"), abrindo o portal", server.c_str());
         wifi_config_mode_ = true;

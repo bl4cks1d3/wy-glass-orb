@@ -11,6 +11,7 @@
 #include "assets/lang_config.h"
 #include "mcp_server.h"
 #include "settings.h"
+#include "orb_studio_config.h"
 
 #if CONFIG_USE_AUDIO_PROCESSOR
 #include "afe_audio_processor.h"
@@ -218,6 +219,9 @@ void Application::ConfigureServer() {
 
     Settings wifi("wifi", false);
     std::string url = wifi.GetString("ota_url");
+    if (url.empty()) {
+        url = orb_studio::kDefaultServer;  // servidor padrao do Orb Studio, se houver
+    }
     // Sem porta no endereco, usa a do orb_gateway (8733) em vez da 80
     size_t host_start = url.find("://");
     if (host_start != std::string::npos) {

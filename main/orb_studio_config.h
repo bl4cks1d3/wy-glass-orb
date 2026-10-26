@@ -16,7 +16,7 @@ struct StateStyle {
 };
 
 // Tipos de orb (um pintor para cada em orb_ui.cc)
-enum class Style { kGlobe, kRings, kPlasma, kWave, kParticles, kPulse, kAmoeba };
+enum class Style { kGlobe, kRings, kPlasma, kWave, kParticles, kPulse, kAmoeba, kBrain, kShock, kZeta };
 constexpr Style kStyle = Style::kGlobe;
 
 constexpr const char* kTitle = "WY GLASS ORB";

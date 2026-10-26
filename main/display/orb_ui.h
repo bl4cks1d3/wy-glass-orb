@@ -92,7 +92,15 @@ private:
     void PaintAmoeba();
     void BlendPixel(int x, int y, uint32_t rgb, float a);
     void Dot(float x, float y, float radius, uint32_t rgb, float a = 1.0f);
-    void Ellipse(float x, float y, float rx, float ry, uint32_t rgb, int half = 0);
+    void Ellipse(float x, float y, float rx, float ry, uint32_t rgb, int half = 0, float a = 1.0f);
+
+    // Tipos com arte fixa: desenhada uma vez no boot em base_ (cerebro, choque, robo)
+    void BakeStyle();
+    void BaseBlend(int x, int y, uint32_t rgb, float a);
+    void BaseDot(float x, float y, float radius, uint32_t rgb, float a = 1.0f);
+    void PaintBrain();
+    void PaintShock();
+    void PaintZeta();
     void ApplyState(int state);
     void ShowConfig(bool show);
     void Tick();

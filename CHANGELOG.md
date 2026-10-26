@@ -5,7 +5,7 @@
 - **Orb Studio** (`studio/`): ambiente visual no navegador para personalizar o globo, a ativação por voz e a rede do portal com pré-visualização, compilar, gravar, ver o log serial e desenhar telas interativas.
 - Aparência, textos, prefixo da rede do portal e servidor padrão saem de `main/orb_studio_config.h`, gerado pelo Studio. Os valores padrão deixam o orb igual ao 0.2.0.
 - Servidor padrão: com ele preenchido, o orb conecta sem pedir o endereço no portal.
-- Tipos de orb: globo holográfico, anéis orbitais, esfera de plasma, onda de voz, nuvem de partículas, pulso minimalista e ameba (personagem com expressões por estado). Escolha na galeria do Studio.
+- Tipos de orb: globo holográfico, anéis orbitais, esfera de plasma, onda de voz, nuvem de partículas, pulso minimalista, ameba (personagem com expressões por estado) e três inspirados em personagens: cérebro alienígena (Brainiac), Super Choque e robô infiltrador (Projeto Zetta). Escolha na galeria do Studio.
 
 ## 0.2.0 — 2026-10-23
 

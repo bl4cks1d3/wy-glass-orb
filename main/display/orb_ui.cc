@@ -199,6 +199,7 @@ void OrbUi::BuildGlobe() {
     for (int i = 0; i < 256; i++) {
         kSinLut[i] = std::sin(i * 2.0f * (float)M_PI / 256.0f);
     }
+    BakeStyle();
     if (kStyle == orb_studio::Style::kAmoeba) {
         amoeba_angle_ = (uint8_t*)heap_caps_malloc(kBox * kBox, MALLOC_CAP_SPIRAM);
         amoeba_dist_ = (uint16_t*)heap_caps_malloc(kBox * kBox * 2, MALLOC_CAP_SPIRAM);
@@ -435,7 +436,11 @@ void OrbUi::RenderGlobe() {
         case orb_studio::Style::kWave: PaintWave(); break;
         case orb_studio::Style::kParticles: PaintParticles(); break;
         case orb_studio::Style::kPulse: PaintPulse(); break;
-        case orb_studio::Style::kAmoeba: break;  // pintada depois, em cores, sobre a base
+        case orb_studio::Style::kAmoeba:  // tipos em cores: pintados depois, sobre a base
+        case orb_studio::Style::kBrain:
+        case orb_studio::Style::kShock:
+        case orb_studio::Style::kZeta:
+            break;
     }
 
     // Compoe base + luz na cor do estado
@@ -447,8 +452,12 @@ void OrbUi::RenderGlobe() {
         int l = light_[k];
         globe_buf_[k] = Pack565(b[0] + ((l * tr) >> 8), b[1] + ((l * tg) >> 8), b[2] + ((l * tb) >> 8));
     }
-    if (kStyle == orb_studio::Style::kAmoeba) {
-        PaintAmoeba();
+    switch (kStyle) {
+        case orb_studio::Style::kAmoeba: PaintAmoeba(); break;
+        case orb_studio::Style::kBrain: PaintBrain(); break;
+        case orb_studio::Style::kShock: PaintShock(); break;
+        case orb_studio::Style::kZeta: PaintZeta(); break;
+        default: break;
     }
     lv_obj_invalidate(globe_);
 }
@@ -681,7 +690,7 @@ void OrbUi::Dot(float px, float py, float radius, uint32_t rgb, float a) {
 }
 
 // Elipse cheia; half = 1 so a metade de baixo (sorriso), -1 so a de cima
-void OrbUi::Ellipse(float px, float py, float rx, float ry, uint32_t rgb, int half) {
+void OrbUi::Ellipse(float px, float py, float rx, float ry, uint32_t rgb, int half, float a) {
     for (int yy = (int)(py - ry - 1); yy <= (int)(py + ry + 1); yy++) {
         float fy = yy + 0.5f - py;
         if ((half > 0 && fy < 0) || (half < 0 && fy > 0)) {
@@ -690,7 +699,7 @@ void OrbUi::Ellipse(float px, float py, float rx, float ry, uint32_t rgb, int ha
         for (int xx = (int)(px - rx - 1); xx <= (int)(px + rx + 1); xx++) {
             float fx = xx + 0.5f - px;
             float e = std::sqrt((fx * fx) / (rx * rx) + (fy * fy) / (ry * ry));
-            BlendPixel(xx, yy, rgb, std::clamp((1.0f - e) * std::min(rx, ry) + 0.5f, 0.0f, 1.0f));
+            BlendPixel(xx, yy, rgb, a * std::clamp((1.0f - e) * std::min(rx, ry) + 0.5f, 0.0f, 1.0f));
         }
     }
 }
@@ -808,6 +817,332 @@ void OrbUi::PaintAmoeba() {
             happy_eye(cx + eye_dx);
             smile(1.0f);
             break;
+    }
+}
+
+// ------------------------------------------------------------------ cerebro, choque e robo
+// Inspirados no Brainiac (pele verde, circuitos, diodos), no Super Choque (raios de estatica)
+// e no robo do Projeto Zetta (cabeca metalica, visor, holograma). A parte fixa e desenhada uma
+// vez em base_ (BakeStyle); a cada quadro so o que se mexe. O mesmo desenho esta em globe.js.
+
+namespace {
+
+// Gerador pseudoaleatorio simples (igual ao de globe.js, para a previa bater)
+struct Lcg {
+    uint32_t s;
+    float Next() {
+        s = s * 1664525u + 1013904223u;
+        return (s >> 8) * (1.0f / 16777216.0f);
+    }
+};
+
+constexpr float kHeadScale = 0.86f;  // raio da cabeca/esfera em fracoes de kR
+
+// Trilhas de circuito do cerebro: passeios em grade de 9 px dentro da esfera
+struct Trace {
+    int n;
+    float x[12], y[12];
+};
+Trace gTraces[16];
+
+void BuildTraces(float cx, float cy, float rb) {
+    Lcg rng{12345u};
+    const float step = 9.0f;
+    static const int kDx[4] = {1, 0, -1, 0}, kDy[4] = {0, 1, 0, -1};
+    for (int t = 0; t < 16; t++) {
+        Trace& tr = gTraces[t];
+        float ang = t * 2.0f * (float)M_PI / 16.0f + rng.Next() * 0.3f;
+        float rad = rb * (0.25f + 0.5f * rng.Next());
+        float x = std::round((cx + rad * std::cos(ang)) / step) * step;
+        float y = std::round((cy + rad * std::sin(ang)) / step) * step;
+        int dir = (int)(rng.Next() * 4) & 3;
+        tr.n = 0;
+        tr.x[tr.n] = x;
+        tr.y[tr.n++] = y;
+        int steps = 6 + (int)(rng.Next() * 6);
+        for (int s = 0; s < steps && tr.n < 12; s++) {
+            if (rng.Next() < 0.45f) {
+                dir = (dir + (rng.Next() < 0.5f ? 1 : 3)) & 3;  // vira 90 graus, nunca volta
+            }
+            float len = step * (1 + (int)(rng.Next() * 2));
+            float nx = x + kDx[dir] * len, ny = y + kDy[dir] * len;
+            if (std::hypot(nx - cx, ny - cy) > rb * 0.86f) {
+                break;
+            }
+            x = nx;
+            y = ny;
+            tr.x[tr.n] = x;
+            tr.y[tr.n++] = y;
+        }
+    }
+}
+
+// Ponto a uma fracao f (0-1) do comprimento de uma trilha
+void TracePoint(const Trace& tr, float f, float& x, float& y) {
+    float total = 0;
+    for (int i = 1; i < tr.n; i++) total += std::hypot(tr.x[i] - tr.x[i - 1], tr.y[i] - tr.y[i - 1]);
+    float want = f * total;
+    for (int i = 1; i < tr.n; i++) {
+        float seg = std::hypot(tr.x[i] - tr.x[i - 1], tr.y[i] - tr.y[i - 1]);
+        if (want <= seg || i == tr.n - 1) {
+            float u = seg > 0 ? std::min(1.0f, want / seg) : 0;
+            x = tr.x[i - 1] + (tr.x[i] - tr.x[i - 1]) * u;
+            y = tr.y[i - 1] + (tr.y[i] - tr.y[i - 1]) * u;
+            return;
+        }
+        want -= seg;
+    }
+    x = tr.x[0];
+    y = tr.y[0];
+}
+
+}  // namespace
+
+void OrbUi::BaseBlend(int x, int y, uint32_t rgb, float a) {
+    if (x < 0 || y < 0 || x >= kBox || y >= kBox || a <= 0.0f) {
+        return;
+    }
+    uint8_t* p = &base_[(y * kBox + x) * 3];
+    Rgb c = Lerp({(float)p[0], (float)p[1], (float)p[2]}, Hex(rgb), std::min(a, 1.0f));
+    p[0] = (uint8_t)c.r;
+    p[1] = (uint8_t)c.g;
+    p[2] = (uint8_t)c.b;
+}
+
+void OrbUi::BaseDot(float px, float py, float radius, uint32_t rgb, float a) {
+    for (int yy = (int)(py - radius - 1); yy <= (int)(py + radius + 1); yy++) {
+        for (int xx = (int)(px - radius - 1); xx <= (int)(px + radius + 1); xx++) {
+            float d = std::hypot(xx + 0.5f - px, yy + 0.5f - py);
+            BaseBlend(xx, yy, rgb, a * std::clamp(radius + 0.5f - d, 0.0f, 1.0f));
+        }
+    }
+}
+
+void OrbUi::BakeStyle() {
+    if (kStyle != orb_studio::Style::kBrain && kStyle != orb_studio::Style::kShock &&
+        kStyle != orb_studio::Style::kZeta) {
+        return;
+    }
+    const float cx = kCx - kBoxX, cy = kCy - kBoxY, rb = kR * kHeadScale;
+    // Esfera: cor com luz de cima/esquerda e contorno escuro
+    uint32_t light = 0x8BE16A, shadow = 0x2F7D2C, line = 0x14301A;  // cerebro
+    if (kStyle == orb_studio::Style::kShock) {
+        light = 0x1B2F66; shadow = 0x050A1C; line = 0x2D8CFF;
+    } else if (kStyle == orb_studio::Style::kZeta) {
+        light = 0xEEF2F6; shadow = 0x5E6672; line = 0x20252C;
+    }
+    for (int y = 0; y < kBox; y++) {
+        for (int x = 0; x < kBox; x++) {
+            float dx = x + 0.5f - cx, dy = y + 0.5f - cy, d = std::hypot(dx, dy);
+            if (d > rb + 1.0f) {
+                continue;
+            }
+            float shade = std::clamp(0.55f - (dx * 0.45f + dy * 0.6f) / (2.0f * rb), 0.0f, 1.0f);
+            if (kStyle == orb_studio::Style::kShock) {
+                shade = std::clamp(1.0f - d / rb, 0.0f, 1.0f);  // brilho no centro
+            }
+            Rgb c = Lerp(Hex(shadow), Hex(light), shade);
+            if (kStyle == orb_studio::Style::kZeta) {  // brilho especular do metal
+                float hx = dx + 0.35f * rb, hy = dy + 0.45f * rb;
+                c = Lerp(c, Hex(0xFFFFFF), 0.55f * std::exp(-(hx * hx + hy * hy) / (2.0f * 220.0f)));
+            }
+            float edge = rb - d;
+            float line_w = kStyle == orb_studio::Style::kShock ? 1.6f : 2.6f;
+            c = Lerp(c, Hex(line), std::clamp(line_w - edge, 0.0f, 1.0f) * (kStyle == orb_studio::Style::kShock ? 0.8f : 1.0f));
+            uint8_t* p = &base_[(y * kBox + x) * 3];
+            Rgb under = {(float)p[0], (float)p[1], (float)p[2]};
+            c = Lerp(under, c, std::clamp(rb + 1.0f - d, 0.0f, 1.0f));
+            p[0] = (uint8_t)std::min(c.r, 255.0f);
+            p[1] = (uint8_t)std::min(c.g, 255.0f);
+            p[2] = (uint8_t)std::min(c.b, 255.0f);
+        }
+    }
+
+    if (kStyle == orb_studio::Style::kBrain) {
+        // Trilhas de circuito roxas, com ilhas nas pontas
+        BuildTraces(cx, cy, rb);
+        for (const Trace& tr : gTraces) {
+            for (int i = 1; i < tr.n; i++) {
+                float len = std::hypot(tr.x[i] - tr.x[i - 1], tr.y[i] - tr.y[i - 1]);
+                for (float u = 0; u <= len; u += 0.7f) {
+                    float f = len > 0 ? u / len : 0;
+                    BaseDot(tr.x[i - 1] + (tr.x[i] - tr.x[i - 1]) * f, tr.y[i - 1] + (tr.y[i] - tr.y[i - 1]) * f, 1.0f, 0x5B2A86);
+                }
+            }
+            if (tr.n > 1) {
+                BaseDot(tr.x[tr.n - 1], tr.y[tr.n - 1], 2.6f, 0x5B2A86);
+                BaseDot(tr.x[tr.n - 1], tr.y[tr.n - 1], 1.2f, 0xB58CE0);
+            }
+        }
+    } else if (kStyle == orb_studio::Style::kZeta) {
+        // Emenda vertical, visor escuro arredondado e grade da boca
+        for (float y = cy - rb * 0.95f; y < cy - rb * 0.24f; y += 0.7f) {
+            BaseDot(cx, y, 0.8f, 0x6B7380, 0.8f);
+        }
+        float vy = cy - 0.08f * rb, vh = 0.17f * rb, vw = 0.74f * rb;
+        for (int y = (int)(vy - vh - 2); y <= (int)(vy + vh + 2); y++) {
+            for (int x = (int)(cx - vw - 2); x <= (int)(cx + vw + 2); x++) {
+                float fx = std::fabs(x + 0.5f - cx), fy = std::fabs(y + 0.5f - vy);
+                float qx = std::max(fx - (vw - vh), 0.0f);  // retangulo com pontas redondas
+                float d = std::hypot(qx, fy) - vh;
+                BaseBlend(x, y, 0x0B1220, std::clamp(0.5f - d, 0.0f, 1.0f));
+                BaseBlend(x, y, 0x3A4A5C, std::clamp(1.0f - std::fabs(d + 0.8f), 0.0f, 1.0f) * 0.7f);
+            }
+        }
+        for (int i = 0; i < 5; i++) {
+            float gy = cy + 0.30f * rb + i * 0.075f * rb, gw = (0.30f - std::fabs(i - 2) * 0.04f) * rb;
+            for (float x = cx - gw; x <= cx + gw; x += 0.7f) {
+                BaseDot(x, gy, 0.9f, 0x2A3038);
+            }
+        }
+    } else {
+        // Choque: anel interno fraco
+        Lcg rng{777u};
+        for (int i = 0; i < 40; i++) {  // pontinhos de estatica fixos
+            float a = rng.Next() * 2.0f * (float)M_PI, r = rb * (0.3f + 0.65f * rng.Next());
+            BaseDot(cx + r * std::cos(a), cy + r * std::sin(a), 0.7f, 0x6FB6FF, 0.5f);
+        }
+    }
+}
+
+void OrbUi::PaintBrain() {
+    const float cx = kCx - kBoxX, cy = kCy - kBoxY, rb = kR * kHeadScale, tau = 2.0f * (float)M_PI;
+    float frac = phase_ms_ / (float)pulse_period_ms_;
+    // Pulsos de dados correndo nas trilhas
+    for (int t = 0; t < 16; t++) {
+        const Trace& tr = gTraces[t];
+        if (tr.n < 2) continue;
+        float f = std::fmod(angle_ * 0.35f + t * 0.37f, 1.0f);
+        for (int k = 0; k < 5; k++) {
+            float x, y;
+            TracePoint(tr, std::max(0.0f, f - k * 0.04f), x, y);
+            Dot(x, y, 1.7f - k * 0.25f, 0xFF4FD8, 1.0f - k * 0.2f);
+        }
+    }
+    // Tres diodos vermelhos em triangulo na testa
+    static const float kDiodes[3][2] = {{0.0f, -0.66f}, {-0.22f, -0.48f}, {0.22f, -0.48f}};
+    int state = last_state_;
+    for (int i = 0; i < 3; i++) {
+        float glow;
+        switch (state) {
+            case kDeviceStateListening: glow = 1.0f; break;
+            case kDeviceStateSpeaking: glow = 0.5f + 0.5f * std::sin(tau * (frac * 2.0f - i / 3.0f)); break;
+            case kDeviceStateConnecting:
+            case kDeviceStateActivating:
+            case kDeviceStateUpgrading:
+                glow = ((int)(angle_ * 3.0f) % 3) == i ? 1.0f : 0.25f; break;
+            case kDeviceStateFatalError: glow = std::sin(tau * frac * 4.0f) > 0 ? 1.0f : 0.15f; break;
+            default: glow = 0.55f + 0.45f * std::sin(tau * frac); break;
+        }
+        float dx = cx + kDiodes[i][0] * rb, dy = cy + kDiodes[i][1] * rb;
+        Dot(dx, dy, 9.0f, 0xFF2A2A, 0.25f * glow);
+        Dot(dx, dy, 6.0f, 0x2A0E0E);
+        Dot(dx, dy, 4.5f, 0x7A0F12);
+        Dot(dx, dy, 4.5f, 0xFF3030, glow);
+        Dot(dx - 1.3f, dy - 1.5f, 1.4f, 0xFFD0D0, 0.8f * glow);
+    }
+}
+
+void OrbUi::PaintShock() {
+    const float cx = kCx - kBoxX, cy = kCy - kBoxY, rb = kR * kHeadScale, tau = 2.0f * (float)M_PI;
+    int state = last_state_;
+    int bolts = 3;
+    uint32_t core = 0xE8F7FF, glow = 0x1E6BFF;
+    switch (state) {
+        case kDeviceStateListening: bolts = 4; break;
+        case kDeviceStateSpeaking: bolts = 6; break;
+        case kDeviceStateConnecting:
+        case kDeviceStateActivating:
+        case kDeviceStateUpgrading:
+        case kDeviceStateStarting: bolts = 5; break;
+        case kDeviceStateFatalError: core = 0xFFD6D6; glow = 0xFF2A2A; break;
+        default: break;
+    }
+    float wave = std::sin(tau * phase_ms_ / (float)pulse_period_ms_);
+    // Nucleo eletrico
+    Dot(cx, cy, 13.0f + 2.0f * wave, glow, 0.30f);
+    Dot(cx, cy, 6.5f + wave, core, 0.9f);
+    // Raios: zigue-zague do centro ate a borda, novos a cada passo da animacao
+    Lcg rng{(uint32_t)(angle_ * 12.0f) * 2654435761u + 1u};
+    for (int b = 0; b < bolts; b++) {
+        float base = b * tau / bolts + angle_ * 0.3f + rng.Next() * 0.6f;
+        float r0 = rb * 0.12f, r1 = rb * (0.82f + 0.15f * rng.Next());
+        float px = cx + r0 * std::cos(base), py = cy + r0 * std::sin(base);
+        const int kSegs = 7;
+        for (int s = 1; s <= kSegs; s++) {
+            float f = s / (float)kSegs;
+            float r = r0 + (r1 - r0) * f, jitter = (s < kSegs) ? (rng.Next() - 0.5f) * 14.0f : 0.0f;
+            float a = base + (rng.Next() - 0.5f) * 0.25f;
+            float nx = cx + r * std::cos(a) - jitter * std::sin(a), ny = cy + r * std::sin(a) + jitter * std::cos(a);
+            float len = std::hypot(nx - px, ny - py);
+            for (float u = 0; u <= len; u += 1.2f) {
+                float t = len > 0 ? u / len : 0;
+                float x = px + (nx - px) * t, y = py + (ny - py) * t;
+                Dot(x, y, 3.2f, glow, 0.18f);
+                Dot(x, y, 1.0f, core, 0.95f);
+            }
+            px = nx;
+            py = ny;
+        }
+        // Faiscas amarelas na ponta
+        Dot(px, py, 2.2f, 0xFFD23F, 0.95f);
+        for (int k = 0; k < 3; k++) {
+            Dot(px + (rng.Next() - 0.5f) * 10.0f, py + (rng.Next() - 0.5f) * 10.0f, 0.9f, 0xFFE680, 0.9f);
+        }
+    }
+}
+
+void OrbUi::PaintZeta() {
+    const float cx = kCx - kBoxX, cy = kCy - kBoxY, rb = kR * kHeadScale, tau = 2.0f * (float)M_PI;
+    float frac = phase_ms_ / (float)pulse_period_ms_;
+    float vy = cy - 0.08f * rb, eye_dx = 0.34f * rb;
+    int state = last_state_;
+    uint32_t eye = 0x45E0FF;
+    float ry = 0.05f * rb, bright = 0.9f;
+    bool eyes_on = true;
+    switch (state) {
+        case kDeviceStateListening: ry = 0.075f * rb; bright = 1.0f; break;
+        case kDeviceStateSpeaking: break;
+        case kDeviceStateConnecting:
+        case kDeviceStateActivating:
+        case kDeviceStateUpgrading: eyes_on = false; break;
+        case kDeviceStateFatalError: eye = 0xFF3B3B; ry = 0.025f * rb; break;
+        default:
+            if (frac < 0.04f) ry = 0.012f * rb;  // pisca uma vez por ciclo do pulso
+            break;
+    }
+    if (eyes_on) {
+        for (int s = -1; s <= 1; s += 2) {
+            float ex = cx + s * eye_dx;
+            Ellipse(ex, vy, 0.16f * rb, ry * 2.4f, eye, 0, 0.22f * bright);
+            Ellipse(ex, vy, 0.11f * rb, ry, eye, 0, bright);
+            Ellipse(ex, vy - ry * 0.3f, 0.07f * rb, std::max(1.0f, ry * 0.35f), 0xE6FBFF, 0, 0.7f * bright);
+        }
+    } else {
+        // Scanner varrendo o visor
+        float sx = cx + 0.6f * rb * std::sin(angle_ * 3.0f);
+        Ellipse(sx, vy, 0.14f * rb, 0.10f * rb, eye, 0, 0.25f);
+        Ellipse(sx, vy, 0.07f * rb, 0.05f * rb, eye, 0, 0.95f);
+    }
+    if (state == kDeviceStateSpeaking) {
+        // Grade da boca vira equalizador
+        for (int i = 0; i < 5; i++) {
+            float gy = cy + 0.30f * rb + i * 0.075f * rb, gw = (0.30f - std::fabs(i - 2) * 0.04f) * rb;
+            float level = 0.5f + 0.5f * std::sin(tau * frac * 2.0f + i * 1.3f);
+            for (float x = cx - gw * level; x <= cx + gw * level; x += 0.8f) {
+                Dot(x, gy, 1.1f, eye, 0.9f);
+            }
+        }
+    }
+    // Holograma: linha de varredura descendo pela cabeca
+    float span = 2.0f * rb, sweep = std::fmod(angle_ * 30.0f, span + 30.0f) - 15.0f;
+    int sy = (int)(cy - rb + sweep);
+    for (int y = sy - 1; y <= sy + 1; y++) {
+        for (int x = 0; x < kBox; x++) {
+            if (std::hypot(x + 0.5f - cx, y + 0.5f - cy) < rb) {
+                BlendPixel(x, y, 0x7FF0FF, y == sy ? 0.30f : 0.12f);
+            }
+        }
     }
 }
 

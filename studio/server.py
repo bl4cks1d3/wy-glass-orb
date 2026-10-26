@@ -43,6 +43,9 @@ STYLES = {
     "particles": ("kParticles", "Nuvem de particulas"),
     "pulse": ("kPulse", "Pulso minimalista"),
     "amoeba": ("kAmoeba", "Ameba"),
+    "brain": ("kBrain", "Cerebro alienigena"),
+    "shock": ("kShock", "Super Choque"),
+    "zeta": ("kZeta", "Robo infiltrador"),
 }
 
 DEFAULTS = {

@@ -127,7 +127,193 @@ const OrbPreview = (() => {
       direct: true,  // pinta em cores, depois da base (nao usa a luz na cor do estado)
       paint(p) { paintAmoeba(p); },
     },
+    brain: {
+      name: "Cérebro alienígena", description: "Inspirado no Brainiac: pele verde, circuitos e diodos na testa",
+      direct: true, bake: "brain",
+      paint(p) { paintBrain(p); },
+    },
+    shock: {
+      name: "Super Choque", description: "Inspirado no Super Choque: raios de estática azul e amarelo",
+      direct: true, bake: "shock",
+      paint(p) { paintShock(p); },
+    },
+    zeta: {
+      name: "Robô infiltrador", description: "Inspirado no Projeto Zetta: cabeça metálica, visor e holograma",
+      direct: true, bake: "zeta",
+      paint(p) { paintZeta(p); },
+    },
   };
+
+  // ---------------------------------------------------------------- cerebro, choque e robo
+  // Iguais a BakeStyle/PaintBrain/PaintShock/PaintZeta de orb_ui.cc.
+  const HEAD = R * 0.86;
+
+  // Mesmo gerador do firmware (LCG de 32 bits)
+  function lcg(seed) {
+    let s = seed >>> 0;
+    return () => { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return (s >>> 8) / 16777216; };
+  }
+
+  const TRACES = (() => {
+    const next = lcg(12345), step = 9, DX = [1, 0, -1, 0], DY = [0, 1, 0, -1], out = [];
+    for (let t = 0; t < 16; t++) {
+      const ang = t * TAU / 16 + next() * 0.3, rad = HEAD * (0.25 + 0.5 * next());
+      let x = Math.round((BCX + rad * Math.cos(ang)) / step) * step, y = Math.round((BCY + rad * Math.sin(ang)) / step) * step;
+      let dir = Math.floor(next() * 4) & 3;
+      const pts = [[x, y]], steps = 6 + Math.floor(next() * 6);
+      for (let s = 0; s < steps && pts.length < 12; s++) {
+        if (next() < 0.45) dir = (dir + (next() < 0.5 ? 1 : 3)) & 3;
+        const len = step * (1 + Math.floor(next() * 2)), nx = x + DX[dir] * len, ny = y + DY[dir] * len;
+        if (Math.hypot(nx - BCX, ny - BCY) > HEAD * 0.86) break;
+        x = nx; y = ny; pts.push([x, y]);
+      }
+      out.push(pts);
+    }
+    return out;
+  })();
+
+  function tracePoint(pts, f) {
+    let total = 0;
+    for (let i = 1; i < pts.length; i++) total += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+    let want = f * total;
+    for (let i = 1; i < pts.length; i++) {
+      const seg = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+      if (want <= seg || i === pts.length - 1) {
+        const u = seg > 0 ? Math.min(1, want / seg) : 0;
+        return [pts[i - 1][0] + (pts[i][0] - pts[i - 1][0]) * u, pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * u];
+      }
+      want -= seg;
+    }
+    return pts[0];
+  }
+
+  // Arte fixa, desenhada uma vez sobre a base (coordenadas do quadrado do globo)
+  function bakeStyle(p, kind) {
+    const colors = { brain: ["#8BE16A", "#2F7D2C", "#14301A"], shock: ["#1B2F66", "#050A1C", "#2D8CFF"], zeta: ["#EEF2F6", "#5E6672", "#20252C"] }[kind];
+    const [light, shadow, line] = colors.map(hex), white = [255, 255, 255];
+    for (let y = 0; y < BOX; y++) for (let x = 0; x < BOX; x++) {
+      const dx = x + 0.5 - BCX, dy = y + 0.5 - BCY, d = Math.hypot(dx, dy);
+      if (d > HEAD + 1) continue;
+      let shade = clamp(0.55 - (dx * 0.45 + dy * 0.6) / (2 * HEAD), 0, 1);
+      if (kind === "shock") shade = clamp(1 - d / HEAD, 0, 1);
+      let c = lerp(shadow, light, shade);
+      if (kind === "zeta") { const hx = dx + 0.35 * HEAD, hy = dy + 0.45 * HEAD; c = lerp(c, white, 0.55 * Math.exp(-(hx * hx + hy * hy) / 440)); }
+      const lineW = kind === "shock" ? 1.6 : 2.6;
+      c = lerp(c, line, clamp(lineW - (HEAD - d), 0, 1) * (kind === "shock" ? 0.8 : 1));
+      p.baseBlend(x, y, c, clamp(HEAD + 1 - d, 0, 1));
+    }
+    if (kind === "brain") {
+      for (const pts of TRACES) {
+        for (let i = 1; i < pts.length; i++) {
+          const len = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+          for (let u = 0; u <= len; u += 0.7) { const f = len > 0 ? u / len : 0; p.baseDot(pts[i - 1][0] + (pts[i][0] - pts[i - 1][0]) * f, pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * f, 1.0, "#5B2A86"); }
+        }
+        if (pts.length > 1) { const [ex, ey] = pts[pts.length - 1]; p.baseDot(ex, ey, 2.6, "#5B2A86"); p.baseDot(ex, ey, 1.2, "#B58CE0"); }
+      }
+    } else if (kind === "zeta") {
+      for (let y = BCY - HEAD * 0.95; y < BCY - HEAD * 0.24; y += 0.7) p.baseDot(BCX, y, 0.8, "#6B7380", 0.8);
+      const vy = BCY - 0.08 * HEAD, vh = 0.17 * HEAD, vw = 0.74 * HEAD;
+      for (let y = Math.floor(vy - vh - 2); y <= Math.floor(vy + vh + 2); y++) for (let x = Math.floor(BCX - vw - 2); x <= Math.floor(BCX + vw + 2); x++) {
+        const fx = Math.abs(x + 0.5 - BCX), fy = Math.abs(y + 0.5 - vy), qx = Math.max(fx - (vw - vh), 0), d = Math.hypot(qx, fy) - vh;
+        p.baseBlend(x, y, hex("#0B1220"), clamp(0.5 - d, 0, 1));
+        p.baseBlend(x, y, hex("#3A4A5C"), clamp(1 - Math.abs(d + 0.8), 0, 1) * 0.7);
+      }
+      for (let i = 0; i < 5; i++) {
+        const gy = BCY + 0.30 * HEAD + i * 0.075 * HEAD, gw = (0.30 - Math.abs(i - 2) * 0.04) * HEAD;
+        for (let x = BCX - gw; x <= BCX + gw; x += 0.7) p.baseDot(x, gy, 0.9, "#2A3038");
+      }
+    } else {
+      const next = lcg(777);
+      for (let i = 0; i < 40; i++) { const a = next() * TAU, r = HEAD * (0.3 + 0.65 * next()); p.baseDot(BCX + r * Math.cos(a), BCY + r * Math.sin(a), 0.7, "#6FB6FF", 0.5); }
+    }
+  }
+
+  const BUSY = (s) => s === "connecting" || s === "starting";
+
+  function paintBrain(p) {
+    const frac = p.phase / p.style().period_ms;
+    TRACES.forEach((pts, t) => {
+      if (pts.length < 2) return;
+      const f = (p.angle * 0.35 + t * 0.37) % 1;
+      for (let k = 0; k < 5; k++) { const [x, y] = tracePoint(pts, Math.max(0, f - k * 0.04)); p.dot(x, y, 1.7 - k * 0.25, "#FF4FD8", 1 - k * 0.2); }
+    });
+    const DIODES = [[0, -0.66], [-0.22, -0.48], [0.22, -0.48]];
+    DIODES.forEach(([ox, oy], i) => {
+      let glow;
+      if (p.state === "listening") glow = 1;
+      else if (p.state === "speaking") glow = 0.5 + 0.5 * Math.sin(TAU * (frac * 2 - i / 3));
+      else if (p.state === "connecting") glow = Math.floor(p.angle * 3) % 3 === i ? 1 : 0.25;
+      else if (p.state === "error") glow = Math.sin(TAU * frac * 4) > 0 ? 1 : 0.15;
+      else glow = 0.55 + 0.45 * Math.sin(TAU * frac);
+      const dx = BCX + ox * HEAD, dy = BCY + oy * HEAD;
+      p.dot(dx, dy, 9, "#FF2A2A", 0.25 * glow);
+      p.dot(dx, dy, 6, "#2A0E0E");
+      p.dot(dx, dy, 4.5, "#7A0F12");
+      p.dot(dx, dy, 4.5, "#FF3030", glow);
+      p.dot(dx - 1.3, dy - 1.5, 1.4, "#FFD0D0", 0.8 * glow);
+    });
+  }
+
+  function paintShock(p) {
+    let bolts = 3, core = "#E8F7FF", glow = "#1E6BFF";
+    if (p.state === "listening") bolts = 4;
+    else if (p.state === "speaking") bolts = 6;
+    else if (BUSY(p.state)) bolts = 5;
+    else if (p.state === "error") { core = "#FFD6D6"; glow = "#FF2A2A"; }
+    const wave = Math.sin(TAU * p.phase / p.style().period_ms);
+    p.dot(BCX, BCY, 13 + 2 * wave, glow, 0.30);
+    p.dot(BCX, BCY, 6.5 + wave, core, 0.9);
+    const next = lcg((Math.imul(Math.floor(p.angle * 12) >>> 0, 2654435761) + 1) >>> 0);
+    for (let b = 0; b < bolts; b++) {
+      const base = b * TAU / bolts + p.angle * 0.3 + next() * 0.6;
+      const r0 = HEAD * 0.12, r1 = HEAD * (0.82 + 0.15 * next());
+      let px = BCX + r0 * Math.cos(base), py = BCY + r0 * Math.sin(base);
+      for (let s = 1; s <= 7; s++) {
+        const f = s / 7, r = r0 + (r1 - r0) * f, jitter = s < 7 ? (next() - 0.5) * 14 : 0, a = base + (next() - 0.5) * 0.25;
+        const nx = BCX + r * Math.cos(a) - jitter * Math.sin(a), ny = BCY + r * Math.sin(a) + jitter * Math.cos(a);
+        const len = Math.hypot(nx - px, ny - py);
+        for (let u = 0; u <= len; u += 1.2) {
+          const t = len > 0 ? u / len : 0, x = px + (nx - px) * t, y = py + (ny - py) * t;
+          p.dot(x, y, 3.2, glow, 0.18);
+          p.dot(x, y, 1.0, core, 0.95);
+        }
+        px = nx; py = ny;
+      }
+      p.dot(px, py, 2.2, "#FFD23F", 0.95);
+      for (let k = 0; k < 3; k++) p.dot(px + (next() - 0.5) * 10, py + (next() - 0.5) * 10, 0.9, "#FFE680", 0.9);
+    }
+  }
+
+  function paintZeta(p) {
+    const frac = p.phase / p.style().period_ms, vy = BCY - 0.08 * HEAD, eyeDx = 0.34 * HEAD;
+    let eye = "#45E0FF", ry = 0.05 * HEAD, bright = 0.9, eyesOn = true;
+    if (p.state === "listening") { ry = 0.075 * HEAD; bright = 1; }
+    else if (p.state === "connecting") eyesOn = false;
+    else if (p.state === "error") { eye = "#FF3B3B"; ry = 0.025 * HEAD; }
+    else if (p.state !== "speaking" && frac < 0.04) ry = 0.012 * HEAD;
+    if (eyesOn) {
+      for (const s of [-1, 1]) {
+        const ex = BCX + s * eyeDx;
+        p.ellipse(ex, vy, 0.16 * HEAD, ry * 2.4, eye, 0, 0.22 * bright);
+        p.ellipse(ex, vy, 0.11 * HEAD, ry, eye, 0, bright);
+        p.ellipse(ex, vy - ry * 0.3, 0.07 * HEAD, Math.max(1, ry * 0.35), "#E6FBFF", 0, 0.7 * bright);
+      }
+    } else {
+      const sx = BCX + 0.6 * HEAD * Math.sin(p.angle * 3);
+      p.ellipse(sx, vy, 0.14 * HEAD, 0.10 * HEAD, eye, 0, 0.25);
+      p.ellipse(sx, vy, 0.07 * HEAD, 0.05 * HEAD, eye, 0, 0.95);
+    }
+    if (p.state === "speaking") {
+      for (let i = 0; i < 5; i++) {
+        const gy = BCY + 0.30 * HEAD + i * 0.075 * HEAD, gw = (0.30 - Math.abs(i - 2) * 0.04) * HEAD;
+        const level = 0.5 + 0.5 * Math.sin(TAU * frac * 2 + i * 1.3);
+        for (let x = BCX - gw * level; x <= BCX + gw * level; x += 0.8) p.dot(x, gy, 1.1, eye, 0.9);
+      }
+    }
+    const span = 2 * HEAD, sweep = (p.angle * 30) % (span + 30) - 15, sy = Math.floor(BCY - HEAD + sweep), scan = hex("#7FF0FF");
+    for (let y = sy - 1; y <= sy + 1; y++) for (let x = 0; x < BOX; x++)
+      if (Math.hypot(x + 0.5 - BCX, y + 0.5 - BCY) < HEAD) p.blendRgb(x, y, scan, y === sy ? 0.30 : 0.12);
+  }
 
   // ---------------------------------------------------------------- ameba (igual a PaintAmoeba)
   const AMOEBA = { light: "#A8F7E6", shadow: "#4FD3BA", line: "#1C2B2B", teeth: "#F4FBF9", mouth: "#7A2E3A" };
@@ -272,6 +458,7 @@ const OrbPreview = (() => {
           this.base[o] = Math.min(255, c[0]); this.base[o + 1] = Math.min(255, c[1]); this.base[o + 2] = Math.min(255, c[2]);
         }
       }
+      if (def.bake) bakeStyle(this, def.bake);
     }
 
     style() {
@@ -331,16 +518,27 @@ const OrbPreview = (() => {
         for (let xx = Math.floor(px - rad - 1); xx <= Math.floor(px + rad + 1); xx++)
           this.blendRgb(xx, yy, rgb, a * clamp(rad + 0.5 - Math.hypot(xx + 0.5 - px, yy + 0.5 - py), 0, 1));
     }
-    ellipse(px, py, rx, ry, color, half = 0) {
+    ellipse(px, py, rx, ry, color, half = 0, a = 1) {
       const rgb = hex(color);
       for (let yy = Math.floor(py - ry - 1); yy <= Math.floor(py + ry + 1); yy++) {
         const fy = yy + 0.5 - py;
         if ((half > 0 && fy < 0) || (half < 0 && fy > 0)) continue;
         for (let xx = Math.floor(px - rx - 1); xx <= Math.floor(px + rx + 1); xx++) {
           const fx = xx + 0.5 - px, e = Math.sqrt((fx * fx) / (rx * rx) + (fy * fy) / (ry * ry));
-          this.blendRgb(xx, yy, rgb, clamp((1 - e) * Math.min(rx, ry) + 0.5, 0, 1));
+          this.blendRgb(xx, yy, rgb, a * clamp((1 - e) * Math.min(rx, ry) + 0.5, 0, 1));
         }
       }
+    }
+    baseBlend(x, y, rgb, a) {
+      if (x < 0 || y < 0 || x >= BOX || y >= BOX || a <= 0) return;
+      const o = ((y + BOX_Y) * SIZE + (x + BOX_X)) * 3, k = Math.min(1, a), b = this.base;
+      b[o] += (rgb[0] - b[o]) * k; b[o + 1] += (rgb[1] - b[o + 1]) * k; b[o + 2] += (rgb[2] - b[o + 2]) * k;
+    }
+    baseDot(px, py, rad, color, a = 1) {
+      const rgb = hex(color);
+      for (let yy = Math.floor(py - rad - 1); yy <= Math.floor(py + rad + 1); yy++)
+        for (let xx = Math.floor(px - rad - 1); xx <= Math.floor(px + rad + 1); xx++)
+          this.baseBlend(xx, yy, rgb, a * clamp(rad + 0.5 - Math.hypot(xx + 0.5 - px, yy + 0.5 - py), 0, 1));
     }
     circle(px, py, radius, a) {
       const n = Math.max(24, Math.floor(TAU * radius));

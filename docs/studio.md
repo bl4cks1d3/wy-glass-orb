@@ -67,6 +67,9 @@ A prévia é aproximada: a placa usa as fontes e o espaçamento do LVGL.
 | Nuvem de partículas | `particles` | Esfera de pontos 3D inclinada, girando | Pontos (×3, até 300) |
 | Pulso minimalista | `pulse` | Núcleo que respira e dois anéis que se expandem no ritmo do pulso | Período do pulso |
 | Ameba | `amoeba` | Personagem verde com manchas, braços e pés; ondula e respira. Olhos e boca mudam com o estado: felizes (pronto), abertos com boca em "o" (ouvindo), boca mexendo (falando), olhando de lado (conectando), olhos em X (erro) | Velocidade e pulso; as cores do corpo são fixas |
+| Cérebro alienígena | `brain` | Inspirado no Brainiac: esfera verde com circuitos roxos, pulsos de dados e três diodos vermelhos que respiram, acendem, piscam em sequência ou giram conforme o estado | Velocidade e pulso |
+| Super Choque | `shock` | Inspirado no Super Choque: núcleo azul com raios de estática e faíscas amarelas; 3 a 6 raios conforme o estado, vermelhos no erro | Velocidade (ritmo do tremor) e pulso |
+| Robô infiltrador | `zeta` | Inspirado no Projeto Zetta: cabeça metálica, visor com olhos ciano que piscam, abrem ou ficam vermelhos, scanner ao conectar, boca-equalizador ao falar e linha de holograma | Velocidade e pulso |
 
 Cor, velocidade, brilho, pulso e texto de cada estado valem para todos os tipos de luz; a ameba usa só velocidade, pulso e texto. O tipo é escolhido na compilação: trocar exige compilar e gravar de novo.
 
@@ -82,6 +85,8 @@ Um tipo é um **pintor**: a cada quadro (~20 por segundo) ele escreve "luz" de 0
    - se o tipo quiser a esfera, os paralelos ou o contorno fixos, inclua-o em `kSphereFill`, `kParallels` ou `kOutline`.
 3. **Pré-visualização** (`studio/web/globe.js`, `STYLES`): uma entrada com `name`, `description`, as mesmas flags `sphere`/`parallels`/`outline` e `paint(p)` usando `p.splat`, `p.disc`, `p.glow`, `p.circle`, `p.angle` e `p.phase`.
 4. Reinicie o Studio: o tipo aparece na galeria.
+
+**Arte fixa** (cérebro, choque e robô): o que não se mexe é desenhado uma vez no boot sobre o fundo (`BakeStyle`, com `BaseBlend`/`BaseDot`; no Studio, `bake` e `p.baseBlend`/`p.baseDot`), e o pintor de cada quadro só desenha o que anima.
 
 **Tipos em cores** (como a ameba): em vez de luz, o pintor desenha direto na imagem, depois do fundo. No firmware ele roda depois da composição em `RenderGlobe` e usa `BlendPixel`, `Dot` e `Ellipse` com cores RGB; no Studio a entrada tem `direct: true` e usa `p.blendRgb`, `p.dot` e `p.ellipse`. O estado atual está em `last_state_` (C) e `p.state` (JS), para mudar a expressão.
 

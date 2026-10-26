@@ -23,6 +23,10 @@ constexpr const char* kTitle = "WY GLASS ORB";
 constexpr const char* kApPrefix = "WyGlass";
 constexpr const char* kDefaultServer = "";
 
+// Descanso de tela: segundos sem conversa (0 = nunca); apagar ou so escurecer
+constexpr int kRestSeconds = 60;
+constexpr bool kRestScreenOff = false;
+
 constexpr int kMeridians = 12;
 constexpr int kDots = 50;
 constexpr float kBaseSpeed = 0.012f;

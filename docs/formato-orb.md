@@ -60,6 +60,21 @@ Os quadros são **JPEG baseline** (não progressivo) de 192×192. A borda do qua
 
 Tamanho típico: 6 estados × 2 s × 15 qps = 180 quadros de 5 a 8 KB, **~1,2 MB**. Cabe com folga nos 6 MB.
 
+## Troca pelo Wi-Fi
+
+A placa confere o servidor (o `orb_gateway`, no mesmo endereço do WebSocket) no boot, a cada minuto quando está em "pronto" e na hora quando o servidor manda a ferramenta MCP `self.orb.update` (troca por voz):
+
+```
+GET http://<servidor>:8733/orbs/current  ->  {"id": "zeta", "name": "...", "size": 895123, "sha256": "..."}  (ou null)
+GET http://<servidor>:8733/orbs/zeta.orb ->  o arquivo
+```
+
+Se o `sha256` for diferente do instalado (NVS `orb/sha256`), ela baixa o arquivo para a partição `orbs`, confere o sha256 e troca de orb **sem reiniciar**; a tela mostra `TROCANDO ORB` enquanto baixa. Os 4 bytes `ORB1` são gravados por último: um download cortado deixa o arquivo inválido e a placa volta ao orb compilado, nunca a um orb quebrado. `null` (nenhum orb atual) deixa a placa com o que tem.
+
+Código: `main/orb_sync.{h,cc}` (consulta e download), `OrbUi::SetSwapping` e `OrbUi::ReloadPack` (troca sem reiniciar). Medido na placa: 874 KB baixados e trocados em poucos segundos, dentro do minuto da consulta.
+
+O orb atual é o `current.txt` da pasta da biblioteca. Quem escreve: o botão **Usar no orb** do Studio e a ferramenta de voz `trocar_orb` do gateway.
+
 ## Ferramentas
 
 ```bash

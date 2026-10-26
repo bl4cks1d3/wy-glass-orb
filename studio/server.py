@@ -58,6 +58,8 @@ DEFAULTS = {
     "ap_prefix": "WyGlass",
     "default_server": "",
     "wake": {"enabled": True, "phrases": ["hey orb", "hi orb"], "threshold": 20},
+    # Descanso de tela: minutos sem conversa (0 = nunca) e o que fazer com a tela
+    "rest": {"minutes": 1, "mode": "dim"},
     "globe": {
         "meridians": 12,
         "dots": 50,
@@ -121,7 +123,7 @@ def validate(cfg: dict) -> dict:
     for key in ("style", "title", "ap_prefix", "default_server", "offline_text"):
         if key in cfg:
             merged[key] = cfg[key]
-    for key in ("wake", "globe"):
+    for key in ("wake", "globe", "rest"):
         merged[key].update(cfg.get(key) or {})
     for state in STATES:
         merged["states"][state].update((cfg.get("states") or {}).get(state) or {})
@@ -152,6 +154,12 @@ def validate(cfg: dict) -> dict:
         "phrases": phrases[:8],
         "threshold": number(wake.get("threshold"), 1, 99, "limiar", integer=True),
     }
+
+    rest = merged["rest"]
+    if rest.get("mode") not in ("dim", "off"):
+        raise ConfigError("descanso: escurecer (dim) ou apagar (off)")
+    out["rest"] = {"minutes": number(rest.get("minutes"), 0, 120, "descanso (minutos)", integer=True),
+                   "mode": rest["mode"]}
 
     g = merged["globe"]
     out["globe"] = {
@@ -243,6 +251,10 @@ def render_header(cfg: dict) -> str:
         f"constexpr const char* kTitle = {c_str(cfg['title'])};",
         f"constexpr const char* kApPrefix = {c_str(cfg['ap_prefix'])};",
         f"constexpr const char* kDefaultServer = {c_str(cfg['default_server'])};",
+        "",
+        "// Descanso de tela: segundos sem conversa (0 = nunca); apagar ou so escurecer",
+        f"constexpr int kRestSeconds = {cfg['rest']['minutes'] * 60};",
+        f"constexpr bool kRestScreenOff = {'true' if cfg['rest']['mode'] == 'off' else 'false'};",
         "",
         f"constexpr int kMeridians = {g['meridians']};",
         f"constexpr int kDots = {g['dots']};",
@@ -359,6 +371,20 @@ def orb_info(path: Path) -> dict:
     header, frames = orbpack.read(path.read_bytes())
     return {"id": header["id"], "name": header["name"], "fps": header["fps"], "frames": len(frames),
             "kb": path.stat().st_size // 1024, "states": header["states"]}
+
+
+def set_current_orb(orb_id: str) -> None:
+    """Marca o orb que a placa deve mostrar; o orb_gateway serve esta mesma pasta (troca pelo Wi-Fi)."""
+    if not ORB_ID.fullmatch(orb_id or "") or not (LIBRARY_DIR / f"{orb_id}.orb").exists():
+        raise ConfigError("orb fora da biblioteca")
+    (LIBRARY_DIR / "current.txt").write_text(orb_id + "\n", encoding="utf-8")
+
+
+def current_orb() -> str:
+    try:
+        return (LIBRARY_DIR / "current.txt").read_text(encoding="utf-8").strip()
+    except OSError:
+        return ""
 
 
 def list_orbs() -> list[dict]:
@@ -597,7 +623,7 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/layouts":
                 return self.send_json({"layouts": list_layouts()})
             if path == "/api/orbs":
-                return self.send_json({"orbs": list_orbs()})
+                return self.send_json({"orbs": list_orbs(), "current": current_orb()})
             if path == "/api/status":
                 return self.send_json({**console.status, "idf": str(idf_path() or ""), "project": str(PROJECT_DIR)})
             if path == "/api/console":
@@ -636,6 +662,10 @@ class Handler(BaseHTTPRequestHandler):
                 info = save_orb(body)
                 console.write("job", f"Orb gerado: studio/library/{info['id']}.orb ({info['frames']} quadros, {info['kb']} KB)")
                 return self.send_json({"orb": info, "orbs": list_orbs()})
+            if path == "/api/orbs/current":
+                set_current_orb(body.get("id", ""))
+                console.write("job", f"Orb atual: {body.get('id')} (o orb confere pelo Wi-Fi a cada minuto)")
+                return self.send_json({"current": current_orb()})
             if path == "/api/layouts":
                 save_layout(body.get("name", ""), body.get("layout"))
                 return self.send_json({"layouts": list_layouts()})

@@ -28,6 +28,11 @@ uint32_t ParseColor(const cJSON* item, uint32_t fallback) {
 
 }  // namespace
 
+OrbPack::~OrbPack() {
+    heap_caps_free(jpeg_);
+    heap_caps_free(work_);
+}
+
 bool OrbPack::Load() {
     partition_ = esp_partition_find_first(ESP_PARTITION_TYPE_DATA, kSubtype, "orbs");
     if (partition_ == nullptr) {

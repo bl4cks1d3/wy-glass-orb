@@ -112,6 +112,12 @@ input[type="color"] {
 .style-card canvas { width: 108px; height: 108px; border-radius: 50%; display: block; margin: 0 auto 8px; background: #000; }
 .style-card b { display: block; font-size: 13px; }
 .style-card span { display: block; color: var(--muted); font-size: 11px; margin-top: 2px; line-height: 1.3; }
+.style-card .use {
+  margin-top: 8px; width: 100%; background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 8px;
+  padding: 6px 8px; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+}
+.style-card .use:disabled { opacity: .5; cursor: wait; }
+.style-card .badge { display: inline-block; margin-top: 6px; font-size: 11px; color: var(--ok); }
 
 /* ---------- pre-visualizacao da tela redonda ---------- */
 .device-wrap { position: sticky; top: 76px; }

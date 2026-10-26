@@ -15,6 +15,7 @@
 #include <esp_heap_caps.h>
 #include <esp_log.h>
 #include <esp_psram.h>
+#include <esp_system.h>
 #include <esp_timer.h>
 
 #include <algorithm>
@@ -164,6 +165,7 @@ const lv_color_t kLabel = lv_color_hex(orb_studio::kLabelColor);
 }  // namespace
 
 OrbUi::OrbUi(lv_obj_t* parent) {
+    instance_ = this;
     tint_ = kCyan;
     root_ = lv_obj_create(parent);
     lv_obj_remove_style_all(root_);
@@ -212,6 +214,7 @@ void OrbUi::BuildGlobe() {
     }
     if (!use_pack) {
         BakeStyle();
+        native_ready_ = true;
     }
     if (kStyle == orb_studio::Style::kAmoeba && !use_pack) {
         amoeba_angle_ = (uint8_t*)heap_caps_malloc(kBox * kBox, MALLOC_CAP_SPIRAM);
@@ -440,7 +443,7 @@ void OrbUi::RenderGlobe() {
     if (!globe_buf_) {
         return;
     }
-    if (pack_ && pack_->loaded()) {
+    if (swapping_ || (pack_ && pack_->loaded())) {
         RenderPack();
         return;
     }
@@ -481,7 +484,41 @@ void OrbUi::RenderGlobe() {
 
 // ------------------------------------------------------------------ orb de arquivo
 
+void OrbUi::SetSwapping(bool swapping) {
+    swapping_ = swapping;
+    if (swapping) {
+        lv_label_set_text(label_, "TROCANDO ORB");
+    } else {
+        last_state_ = -1;  // o proximo tick reaplica o texto do estado
+    }
+}
+
+void OrbUi::ReloadPack() {
+    delete pack_;
+    pack_ = new OrbPack();
+    if (!pack_->Load()) {
+        if (!native_ready_) {
+            // O boot usou o arquivo e o orb compilado nao foi preparado: reinicia limpo nele
+            ESP_LOGW(TAG, "Sem .orb valido: reiniciando no orb compilado");
+            esp_restart();
+        }
+        return;
+    }
+    for (int y = 0; y < kScreen; y++) {
+        for (int x = 0; x < kScreen; x++) {
+            Rgb c = PackBackgroundPixel(x, y, pack_->background());
+            background_buf_[y * kScreen + x] = Pack565((int)c.r, (int)c.g, (int)c.b);
+        }
+    }
+    lv_obj_invalidate(background_);
+    pack_state_ = -1;
+    ESP_LOGI(TAG, "Orb trocado para \"%s\" sem reiniciar", pack_->name().c_str());
+}
+
 void OrbUi::RenderPack() {
+    if (swapping_) {
+        return;  // a particao esta sendo regravada
+    }
     OrbPack::State state;
     switch (last_state_) {
         case kDeviceStateStarting: state = OrbPack::kStarting; break;
@@ -1286,6 +1323,9 @@ void OrbUi::Tick() {
         ApplyState(state);
         last_state_ = state;
     }
+    if (swapping_) {
+        lv_label_set_text(label_, "TROCANDO ORB");
+    }
     if (error_pending_.exchange(false)) {
         lv_obj_remove_flag(error_dot_, LV_OBJ_FLAG_HIDDEN);
         lv_label_set_text(label_, orb_studio::kOfflineText);
@@ -1306,6 +1346,9 @@ void OrbUi::Tick() {
             UpdateInfo();
         }
         return;  // globo coberto: nao desenha
+    }
+    if (resting_) {
+        return;  // descanso de tela: tela escura ou apagada, nada a desenhar
     }
     if (state == kDeviceStateWifiConfiguring) {
         return;

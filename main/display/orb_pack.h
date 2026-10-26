@@ -13,6 +13,8 @@ class OrbPack {
 public:
     enum State { kStarting, kIdle, kConnecting, kListening, kSpeaking, kError, kStateCount };
 
+    ~OrbPack();
+
     // Le e confere o cabecalho. False se a particao nao tem um orb valido.
     bool Load();
     bool loaded() const { return loaded_; }

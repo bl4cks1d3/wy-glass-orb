@@ -52,8 +52,10 @@ function renderGallery() {
     card.type = "button";
     card.dataset.style = id;
     card.setAttribute("aria-pressed", config.style === id);
-    card.innerHTML = `<canvas width="240" height="240"></canvas><b>${def.name}</b><span>${def.description}</span>`;
+    card.innerHTML = `<canvas width="240" height="240"></canvas><b>${def.name}</b><span>${def.description}</span>
+      <button class="use" type="button">Usar no orb</button>${currentOrb === id ? '<span class="badge">● no orb</span>' : ""}`;
     card.addEventListener("click", () => selectStyle(id));
+    card.querySelector(".use").addEventListener("click", (e) => { e.stopPropagation(); useOrb(id, e.target); });
     box.appendChild(card);
     const mini = new OrbPreview.Preview(card.querySelector("canvas"), { style: id, tickMs: 100, overlay: false });
     mini.setConfig(config);
@@ -84,9 +86,9 @@ function bindInput(input) {
   const path = input.dataset.path;
   const out = input.parentElement.querySelector("output");
   const show = () => { if (out) out.textContent = input.step && input.step < 1 ? Number(input.value).toFixed(3) : input.value; };
-  input.addEventListener("input", () => {
+  input.addEventListener(input.tagName === "SELECT" ? "change" : "input", () => {
     let v = input.type === "checkbox" ? input.checked : input.value;
-    if (input.type === "range" || input.type === "number") v = Number(v);
+    if (input.type === "range" || input.type === "number" || "number" in input.dataset) v = Number(v);
     if (input.type === "color") v = v.toUpperCase();
     setPath(config, path, v);
     show();
@@ -249,10 +251,33 @@ document.querySelectorAll("#console-filter button").forEach((b) => b.addEventLis
 // ---------------------------------------------------------------- orb de arquivo
 
 const ORB_FPS = 15, ORB_SECONDS = 2;
+let currentOrb = "";
+
+// Troca o orb sem compilar: gera o .orb do tipo, marca como atual (Wi-Fi) e grava pela USB
+async function useOrb(style, button) {
+  button.disabled = true;
+  button.textContent = "Gerando…";
+  try {
+    await exportOrb(style);
+    ({ current: currentOrb } = await api("/api/orbs/current", { id: style }));
+    const port = $("port").value || (await api("/api/ports")).ports.find((p) => p.orb)?.device;
+    if (port) {
+      button.textContent = "Gravando…";
+      await api("/api/job", { action: "orb_flash", orb: style, port });
+      toast(`Gravando ${OrbPreview.STYLES[style].name} pela USB (~8 s). Acompanhe na aba Compilar e gravar.`);
+    } else {
+      toast(`${OrbPreview.STYLES[style].name} marcado como atual: o orb troca pelo Wi-Fi em até 1 minuto.`);
+    }
+    renderGallery();
+  } catch {
+    button.disabled = false;
+    button.textContent = "Usar no orb";
+  }
+}
 
 // Renderiza o tipo escolhido estado por estado e manda os quadros (JPEG 192x192) ao servidor
-async function exportOrb() {
-  const style = config.style, def = OrbPreview.STYLES[style];
+async function exportOrb(style = config.style) {
+  const def = OrbPreview.STYLES[style];
   const canvas = document.createElement("canvas");
   canvas.width = canvas.height = 240;
   const p = new OrbPreview.Preview(canvas, { style, overlay: false, tickMs: 1000 / ORB_FPS, offscreen: true });
@@ -277,7 +302,8 @@ async function exportOrb() {
 }
 
 async function refreshOrbs() {
-  const { orbs } = await api("/api/orbs");
+  const { orbs, current } = await api("/api/orbs");
+  currentOrb = current;
   $("orb-file").innerHTML = orbs.map((o) => `<option value="${o.id}">${o.name} — ${o.frames} quadros, ${o.kb} KB</option>`).join("")
     || `<option value="">biblioteca vazia: gere um .orb na aba Personalizar</option>`;
 }
@@ -302,6 +328,7 @@ $("btn-orb-flash").addEventListener("click", () =>
   $("header-info").innerHTML = `projeto <code>${status.project}</code><br>ESP-IDF ${status.idf ? `<code>${status.idf}</code>` : "<b style='color:var(--err)'>não encontrado</b>"}`;
   new LayoutEditor.Editor(api, toast).load();
   connectConsole();
-  refreshOrbs();
+  refreshOrbs().then(renderGallery);
+  refreshPorts().catch(() => {});
   window.addEventListener("beforeunload", (e) => { if (dirty) e.preventDefault(); });
 })();

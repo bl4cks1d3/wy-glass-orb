@@ -55,6 +55,9 @@ A SRAM interna é o gargalo (veja [hardware.md](hardware.md#memória)). O que j�
 - **Pedaços pequenos vão para a SRAM interna.** Com `SPIRAM_MALLOC_ALWAYSINTERNAL=4096`, todo `malloc` menor que 4 KB fica na interna. O `AfeWakeWord` do XiaoZhi guardava 2 s de áudio em blocos de 1 KB (~66 KB) e derrubava a memória livre para ~6 KB. O `OrbWakeWord` não guarda áudio.
 - **Buffers grandes de propósito na PSRAM:** use `heap_caps_malloc(..., MALLOC_CAP_SPIRAM)`, como os canvases do globo.
 - Confira `minimal sram` no log depois de qualquer mudança de áudio ou rede.
+- **Não ligue `SPIRAM_TRY_ALLOCATE_WIFI_LWIP`.** Ao ligar, o menuconfig troca os buffers de transmissão do Wi-Fi para 16 estáticos (~26 KB fixos na SRAM interna), e desligar depois não desfaz: a placa passou a abortar no boot por falta de memória (`ESP_ERR_NO_MEM` no `phy_track_pll_init`). O certo é `ESP_WIFI_DYNAMIC_TX_BUFFER=y` com 32.
+- **Tarefas que gravam na flash** (como o `orb_sync`) precisam de pilha na SRAM interna, porque a gravação desliga o cache e a PSRAM. Crie essas tarefas depois do boot: no carregamento dos modelos de voz a SRAM livre chega a ~7,6 KB.
+- Download de um `.orb` (1,2 MB) pelo Wi-Fi: a SRAM livre fica em ~47 KB durante e volta a ~59 KB depois. Para medir, ligue o nível de log `DEBUG` do `OrbSync` (linhas `RAM ...`).
 
 ## Armadilhas conhecidas
 

@@ -22,7 +22,11 @@
   <section class="tab active grid-preview" id="tab-customize">
     <div>
       <div class="panel">
-        <h2>Tipo de orb <small>escolha o desenho; cores, ritmo e textos valem para todos</small></h2>
+        <h2>Tipo de orb <small>cores, ritmo e textos valem para todos</small></h2>
+        <p class="hint" style="margin:0 0 10px">
+          <b>Usar no orb</b> troca o orb na hora, sem compilar: gera o arquivo, grava pela USB (se a placa estiver ligada) e
+          marca como atual para o Wi-Fi. Clicar no desenho só escolhe o tipo <i>compilado</i>, que vale ao compilar e gravar
+          e só aparece se nenhum arquivo .orb estiver instalado.</p>
         <div class="style-gallery" id="style-gallery"></div>
       </div>
 
@@ -36,6 +40,21 @@
           <label class="field wide">Servidor padrão <small>(vazio = pedir no portal)</small>
             <input type="text" data-path="default_server" placeholder="ws://192.168.0.35:8733/orb"></label>
         </div>
+      </div>
+
+      <div class="panel">
+        <h2>Descanso de tela</h2>
+        <div class="fields">
+          <label class="field">Depois de
+            <select data-path="rest.minutes" data-number>
+              <option value="0">Nunca</option><option value="1">1 minuto</option><option value="2">2 minutos</option>
+              <option value="5">5 minutos</option><option value="10">10 minutos</option>
+              <option value="15">15 minutos</option><option value="30">30 minutos</option>
+            </select></label>
+          <label class="field">A tela
+            <select data-path="rest.mode"><option value="dim">Escurece</option><option value="off">Apaga</option></select></label>
+        </div>
+        <p class="hint">Sem conversa, o orb descansa e para de desenhar. Um toque só acorda (não abre conversa); "hey orb" e conversas vindas do servidor também acordam.</p>
       </div>
 
       <div class="panel">

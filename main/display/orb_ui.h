@@ -19,6 +19,15 @@ public:
     // Qualquer task: a ultima conexao com o servidor falhou.
     void ShowError() { error_pending_ = true; }
 
+    // O OrbUi da tela (para o OrbSync trocar o orb pelo Wi-Fi)
+    static OrbUi* Instance() { return instance_; }
+    // Chamar com o lock do LVGL: congela o orb de arquivo enquanto a particao e regravada
+    void SetSwapping(bool swapping);
+    // Chamar com o lock do LVGL: rele a particao orbs e troca de orb sem reiniciar
+    void ReloadPack();
+    // Qualquer task: descanso de tela (para de desenhar o orb)
+    void SetResting(bool resting) { resting_ = resting; }
+
     // Tela de informacoes (modelo, firmware, rede, bateria). Chamar com o lock do LVGL.
     void ShowInfo(bool show);
     bool IsInfoOpen() const { return info_open_; }
@@ -27,6 +36,9 @@ public:
     static constexpr int kConfigButtonTop = 186;
 
 private:
+    static inline OrbUi* instance_ = nullptr;
+    bool swapping_ = false;
+    bool native_ready_ = false;  // o orb compilado foi preparado no boot (sem .orb)
     lv_obj_t* root_ = nullptr;
     lv_obj_t* background_ = nullptr;
     lv_obj_t* globe_ = nullptr;
@@ -73,6 +85,7 @@ private:
     bool wifi_connected_ = false;
     std::atomic<bool> error_pending_{false};
     std::atomic<bool> info_open_{false};
+    std::atomic<bool> resting_{false};
     uint32_t ticks_ = 0;
     bool battery_pending_ = true;
 

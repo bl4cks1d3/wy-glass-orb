@@ -5,6 +5,8 @@
 - **Orb Studio** (`studio/`): ambiente visual no navegador para personalizar o globo, a ativação por voz e a rede do portal com pré-visualização, compilar, gravar, ver o log serial e desenhar telas interativas.
 - Aparência, textos, prefixo da rede do portal e servidor padrão saem de `main/orb_studio_config.h`, gerado pelo Studio. Os valores padrão deixam o orb igual ao 0.2.0.
 - Servidor padrão: com ele preenchido, o orb conecta sem pedir o endereço no portal.
+- Troca de orb pelo Wi-Fi, sem reiniciar: a placa confere o `orb_gateway` (`/orbs/current`) no boot, a cada minuto parada e quando o servidor manda `self.orb.update`; baixa, confere o sha256 e troca na hora. Botão **Usar no orb** na galeria do Studio e troca por voz (`trocar_orb`).
+- Descanso de tela configurável no Studio (minutos sem conversa, escurecer ou apagar); o toque só acorda, sem abrir conversa.
 - Orbs em arquivo (`.orb`): quadros JPEG por estado numa partição própria (`orbs`, no lugar do `ota_1`). O Studio gera o arquivo e grava pela USB em ~8 s, sem compilar; a placa toca a ~14 quadros por segundo (~37 ms por quadro). Exige regravar o firmware uma vez, por causa da tabela de partições.
 - Tipos de orb: globo holográfico, anéis orbitais, esfera de plasma, onda de voz, nuvem de partículas, pulso minimalista, ameba (personagem com expressões por estado) e três inspirados em personagens: cérebro alienígena (Brainiac), Super Choque e robô infiltrador (Projeto Zetta). Escolha na galeria do Studio.
 

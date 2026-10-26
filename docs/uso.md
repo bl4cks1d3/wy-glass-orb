@@ -52,9 +52,17 @@ Toques muito curtos (menos de 30 ms) são ignorados: o touch desta placa às vez
 
 Atualiza a cada segundo enquanto estiver aberta.
 
+## Descanso de tela
+
+Sem conversa por um tempo (padrão: 1 minuto; ajustável no Studio: nunca, 1, 2, 5, 10, 15 ou 30 min), a tela escurece ou apaga e o orb para de desenhar. Um toque só acorda (não abre conversa); "hey orb" e conversas vindas do servidor também acordam.
+
+## Trocar de orb
+
+O desenho do orb pode ser trocado sem gravar o firmware: pelo Studio (**Usar no orb**), ou por voz durante a conversa ("troca o orb para o robô"). A tela mostra `TROCANDO ORB` por alguns segundos enquanto baixa.
+
 ## Bateria
 
-Ícone e porcentagem no topo do globo; fica **vermelho** em 20% ou menos e mostra um **raio** carregando. O orb não entra em deep sleep: a tela escurece depois de 60 s sem conversa e acende de novo quando uma conversa começa.
+Ícone e porcentagem no topo do globo; fica **vermelho** em 20% ou menos e mostra um **raio** carregando. O orb não entra em deep sleep (veja Descanso de tela).
 
 ## Telas do servidor
 

@@ -26,6 +26,7 @@
 #include "power_save_timer.h"
 #include "screen_layout.h"
 #include "orb_ui.h"
+#include "orb_studio_config.h"
 #include <esp_sleep.h>
 #include <driver/rtc_io.h>
 #include <atomic>
@@ -175,6 +176,8 @@ public:
     }
     bool IsInfoOpen() const { return orb_->IsInfoOpen(); }
 
+    void SetResting(bool resting) { orb_->SetResting(resting); }
+
     virtual void SetStatus(const char* status) override {
         SpiLcdDisplay::SetStatus(status);
         if (strcmp(status, Lang::Strings::ERROR) == 0) {
@@ -210,16 +213,19 @@ private:
         rtc_gpio_set_direction(GPIO_NUM_3, RTC_GPIO_MODE_OUTPUT_ONLY);
         rtc_gpio_set_level(GPIO_NUM_3, 1);
 
-        power_save_timer_ = new PowerSaveTimer(-1, 60, -1);
+        // Descanso de tela (Orb Studio): sem conversa por kRestSeconds, escurece ou apaga
+        power_save_timer_ = new PowerSaveTimer(-1, orb_studio::kRestSeconds > 0 ? orb_studio::kRestSeconds : -1, -1);
         power_save_timer_->OnEnterSleepMode([this]() {
-            ESP_LOGI(TAG, "Enabling sleep mode");
-            display_->SetChatMessage("system", "");
-            display_->SetEmotion("sleepy");
-            GetBacklight()->SetBrightness(20);
+            ESP_LOGI(TAG, "Descanso de tela");
+            GetBacklight()->SetBrightness(orb_studio::kRestScreenOff ? 0 : 15);
+            if (orb_display_) {
+                orb_display_->SetResting(true);
+            }
         });
         power_save_timer_->OnExitSleepMode([this]() {
-            display_->SetChatMessage("system", "");
-            display_->SetEmotion("neutral");
+            if (orb_display_) {
+                orb_display_->SetResting(false);
+            }
             GetBacklight()->RestoreBrightness();
         });
         power_save_timer_->OnShutdownRequest([this]() {
@@ -320,7 +326,9 @@ private:
                      (int)touch_duration);
             if (!touched_on_layout && !ScreenLayout::GetInstance().IsOpen()) {
                 auto display = board.orb_display_;
-                if (std::abs(dx) >= 50 && std::abs(dx) > std::abs(dy)) {
+                if (board.power_save_timer_->IsInSleepMode()) {
+                    board.power_save_timer_->WakeUp();  // descansando: o toque so acorda
+                } else if (std::abs(dx) >= 50 && std::abs(dx) > std::abs(dy)) {
                     // Arrastar para qualquer lado alterna entre o orb e as informacoes
                     display->ShowInfo(!display->IsInfoOpen());
                 } else if (touch_duration < TOUCH_THRESHOLD_MS) {

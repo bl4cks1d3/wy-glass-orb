@@ -12,6 +12,7 @@
 #include "mcp_server.h"
 #include "settings.h"
 #include "orb_studio_config.h"
+#include "orb_sync.h"
 
 #if CONFIG_USE_AUDIO_PROCESSOR
 #include "afe_audio_processor.h"
@@ -242,6 +243,9 @@ void Application::ConfigureServer() {
         ESP_LOGW(TAG, "Nenhum servidor configurado no portal");
     } else {
         ESP_LOGI(TAG, "Servidor: %s", url.c_str());
+        // Biblioteca de orbs no mesmo servidor: troca de orb pelo Wi-Fi, sem compilar
+        OrbSync::RegisterMcpTool();
+        OrbSync::GetInstance().SetServer(url);
     }
     xEventGroupSetBits(event_group_, CHECK_NEW_VERSION_DONE_EVENT);
 }
@@ -692,6 +696,7 @@ void Application::Start() {
     // Wait for the new version check to finish
     xEventGroupWaitBits(event_group_, CHECK_NEW_VERSION_DONE_EVENT, pdTRUE, pdFALSE, portMAX_DELAY);
     SetDeviceState(kDeviceStateIdle);
+    OrbSync::GetInstance().Start();  // depois do pico de memoria do boot
 
     if (protocol_started) {
         std::string message = std::string(Lang::Strings::VERSION) + ota_.GetCurrentVersion();

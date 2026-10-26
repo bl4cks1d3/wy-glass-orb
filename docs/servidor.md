@@ -28,6 +28,22 @@ Configuração em `config.json > orb_gateway` (padrões entre parênteses):
 
 Credenciais, voz e modelo vêm do mesmo `config.json` do Live dos óculos.
 
+### Biblioteca de orbs
+
+O gateway serve a biblioteca de `.orb` na mesma porta, com as mesmas regras de `Origin` e token do WebSocket:
+
+| Rota | Resposta |
+| --- | --- |
+| `GET /orbs` | `{"orbs": [{id, name, size, sha256}]}` |
+| `GET /orbs/current` | O orb que a placa deve mostrar, ou `null` |
+| `GET /orbs/<id>.orb` | O arquivo |
+
+A pasta é `orb_gateway.library` no `config.json`; vazio usa `wy-glass-orb/studio/library` ao lado do repositório do Wy Glass (a mesma do Orb Studio). No modo live, o Gemini ganha a ferramenta **`trocar_orb`** ("troca o orb para o alien"): ela acha o orb pelo nome falado, grava o `current.txt` e manda `self.orb.update` para a placa trocar na hora. Detalhes em [formato-orb.md](formato-orb.md#troca-pelo-wi-fi).
+
+### Idioma
+
+A conversa do orb usa `pt-BR` (`orb_gateway.live.language`, em `SpeechConfig.language_code`) e o prompt reforça que o usuário fala português do Brasil. Fixar o idioma da transcrição (`AudioTranscriptionConfig.language_codes`) só existe no modo Enterprise da API do Gemini; na API de desenvolvedor ele é recusado.
+
 ### Teste
 
 - Navegador: `http://<ip>:8733/health` → `{"ok": true, "mode": "live", "orbs": [...]}`, com os orbs conectados agora.

@@ -11,3 +11,4 @@ backup/*.bin
 __pycache__/
 # Orbs gerados pelo Studio (o codigo que os gera esta no repositorio)
 studio/library/*.orb
+studio/library/current.txt

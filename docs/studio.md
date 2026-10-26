@@ -18,6 +18,7 @@ Tudo o que muda a aparência e o comportamento do orb sem mexer no código:
 | --- | --- |
 | Tipo de orb | Galeria com miniaturas animadas: globo holográfico, anéis orbitais, esfera de plasma, onda de voz, nuvem de partículas, pulso minimalista |
 | Identidade | Título da tela de informações, prefixo da rede do portal (`WyGlass-XXXX`), servidor padrão |
+| Descanso de tela | Depois de quantos minutos sem conversa (ou nunca) e se a tela escurece ou apaga |
 | Ativação por voz | Liga/desliga, frases em inglês ("hey orb", "hi orb"), limiar |
 | Globo | Meridianos, pontos, velocidade base, cor das linhas fixas, brilho em volta, cor dos textos, gradientes do fundo e da esfera |
 | Estados | Para iniciando, pronto, conectando, ouvindo, falando e erro: cor, velocidade, brilho, pulso, período e texto |
@@ -93,6 +94,8 @@ Um tipo é um **pintor**: a cada quadro (~20 por segundo) ele escreve "luz" de 0
 Custo: o pintor roda no ESP32-S3 a cada 50 ms junto com áudio e Wi-Fi. Pontos e linhas (alguns milhares de `Splat`) são baratos; contas por pixel precisam de tabelas pré-calculadas no boot, como a esfera de plasma faz.
 
 ## Orbs em arquivo
+
+**Usar no orb**, em cada cartão da galeria, troca o orb sem compilar num clique: gera o `.orb` do tipo com as cores e ritmos da aba, marca como orb atual (`studio/library/current.txt`, que o `orb_gateway` serve) e, se a placa estiver na USB, grava na hora. Sem USB, a placa troca sozinha pelo Wi-Fi em até um minuto. Clicar no desenho do cartão só escolhe o tipo **compilado**, que vale ao compilar e gravar e só aparece se nenhum `.orb` estiver instalado.
 
 "Gerar .orb deste tipo" renderiza o tipo escolhido (com as cores e ritmos da aba) em 2 s por estado, a 15 quadros por segundo, e grava `studio/library/<tipo>.orb`. Na aba Compilar e gravar, "Gravar orb pela USB" grava só esse arquivo na placa, em ~8 s, sem compilar. Formato e detalhes em [formato-orb.md](formato-orb.md).
 

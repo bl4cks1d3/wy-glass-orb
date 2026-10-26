@@ -11,6 +11,8 @@
   <div class="brand"><span class="brand-dot"></span>Orb Studio</div>
   <nav role="tablist">
     <button role="tab" data-tab="customize" aria-selected="true">Personalizar</button>
+    <button role="tab" data-tab="library" aria-selected="false">Biblioteca</button>
+    <button role="tab" data-tab="creator" aria-selected="false">Criador</button>
     <button role="tab" data-tab="layouts" aria-selected="false">Telas</button>
     <button role="tab" data-tab="build" aria-selected="false">Compilar e gravar</button>
   </nav>
@@ -125,6 +127,68 @@
           <button class="btn" id="btn-export-orb">Gerar .orb deste tipo</button>
         </div>
         <p class="hint" style="text-align:center">Gera um arquivo na biblioteca com os 6 estados. Ele troca o orb sem compilar (aba Compilar e gravar).</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= BIBLIOTECA ======================= -->
+  <section class="tab" id="tab-library">
+    <div class="panel">
+      <div class="lib-head">
+        <h2 style="margin:0">Biblioteca de orbs <small id="lib-count"></small></h2>
+        <input type="text" id="lib-search" placeholder="Buscar orb…">
+        <button class="btn primary" id="lib-new">Criar orb</button>
+      </div>
+      <p class="hint">Os seus orbs (Criador) e os tipos nativos. <b>Usar no orb</b> troca na hora, sem compilar: grava pela USB se a placa estiver ligada; sem USB, ela troca sozinha pelo Wi-Fi em até 1 minuto.</p>
+      <div class="lib-grid" id="lib-grid"></div>
+    </div>
+  </section>
+
+  <!-- ======================= CRIADOR ======================= -->
+  <section class="tab grid-preview" id="tab-creator">
+    <div>
+      <div class="panel">
+        <div class="actions">
+          <select id="cr-sources" style="max-width:280px"></select>
+          <button class="btn" id="cr-new-js">Novo em JS</button>
+          <button class="btn" id="cr-new-css">Novo em HTML/CSS</button>
+        </div>
+        <div class="fields" style="margin-top:12px">
+          <label class="field">id (arquivo) <input type="text" id="cr-id" maxlength="40" placeholder="alien"></label>
+          <label class="field">Nome <input type="text" id="cr-name" maxlength="40"></label>
+          <label class="field wide">Descrição <input type="text" id="cr-desc" maxlength="120"></label>
+          <label class="field">Quadros por segundo <input type="number" id="cr-fps" min="5" max="30"></label>
+          <label class="field">Duração do laço (s) <input type="number" id="cr-seconds" min="0.5" max="6" step="0.5"></label>
+          <label class="field">Fundo (centro, meio, borda)
+            <span class="colors3"><input type="color" id="cr-bg0"><input type="color" id="cr-bg1"><input type="color" id="cr-bg2"></span></label>
+          <label class="field">Modo <span id="cr-mode" style="color:var(--text);padding-top:8px"></span></label>
+        </div>
+      </div>
+      <div class="panel" id="cr-js-box">
+        <h2>Código JavaScript</h2>
+        <textarea id="cr-js" class="code" rows="26" spellcheck="false"></textarea>
+      </div>
+      <div class="panel" id="cr-css-box">
+        <h2>HTML</h2>
+        <textarea id="cr-html" class="code" rows="8" spellcheck="false"></textarea>
+        <h2 style="margin-top:14px">CSS</h2>
+        <textarea id="cr-css" class="code" rows="22" spellcheck="false"></textarea>
+      </div>
+    </div>
+    <div class="device-wrap">
+      <div class="panel">
+        <div class="device"><div class="screen"><canvas id="cr-preview" width="240" height="240"></canvas></div></div>
+        <div class="segmented" id="cr-states" style="justify-content:center;margin-top:12px"></div>
+        <p class="cr-error" id="cr-error" hidden></p>
+        <div class="actions" style="justify-content:center;margin-top:8px">
+          <button class="btn" id="cr-save">Salvar</button>
+          <button class="btn" id="cr-generate">Gerar .orb</button>
+          <button class="btn primary" id="cr-use">Usar no orb</button>
+        </div>
+        <div class="actions" style="justify-content:center;margin-top:8px">
+          <button class="btn danger" id="cr-delete">Apagar fonte</button>
+        </div>
+        <p class="hint" style="text-align:center">O quadro do orb tem 192×192; o texto do estado e a bateria a placa desenha por cima, como na prévia.</p>
       </div>
     </div>
   </section>
@@ -247,6 +311,7 @@
 <div class="toast" id="toast"></div>
 <script src="globe.js"></script>
 <script src="layouts.js"></script>
+<script src="creator.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

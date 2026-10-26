@@ -2,6 +2,10 @@
 
 ## Não lançado
 
+- Criador de orbs no Studio: orbs em JavaScript (`draw(ctx, t, state)`) ou HTML/CSS (classes por estado), com prévia ao vivo dos 6 estados; fontes em `studio/orbs/`. Exemplos: Alien (JS) e Fantasminha (CSS).
+- Biblioteca de orbs no Studio: orbs criados e nativos, com prévia, busca, orb atual marcado e "Usar no orb".
+- A placa não baixa de novo um orb já gravado pela USB: compara o sha256 da partição antes.
+
 - **Orb Studio** (`studio/`): ambiente visual no navegador para personalizar o globo, a ativação por voz e a rede do portal com pré-visualização, compilar, gravar, ver o log serial e desenhar telas interativas.
 - Aparência, textos, prefixo da rede do portal e servidor padrão saem de `main/orb_studio_config.h`, gerado pelo Studio. Os valores padrão deixam o orb igual ao 0.2.0.
 - Servidor padrão: com ele preenchido, o orb conecta sem pedir o endereço no portal.

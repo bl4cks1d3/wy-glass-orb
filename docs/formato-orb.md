@@ -69,7 +69,7 @@ GET http://<servidor>:8733/orbs/current  ->  {"id": "zeta", "name": "...", "size
 GET http://<servidor>:8733/orbs/zeta.orb ->  o arquivo
 ```
 
-Se o `sha256` for diferente do instalado (NVS `orb/sha256`), ela baixa o arquivo para a partição `orbs`, confere o sha256 e troca de orb **sem reiniciar**; a tela mostra `TROCANDO ORB` enquanto baixa. Os 4 bytes `ORB1` são gravados por último: um download cortado deixa o arquivo inválido e a placa volta ao orb compilado, nunca a um orb quebrado. `null` (nenhum orb atual) deixa a placa com o que tem.
+Se o `sha256` for diferente do registrado (NVS `orb/sha256`), ela primeiro calcula o sha256 do que já está na partição: se bater (o orb foi gravado pela USB), só registra. Senão, baixa o arquivo para a partição `orbs`, confere o sha256 e troca de orb **sem reiniciar**; a tela mostra `TROCANDO ORB` enquanto baixa. Os 4 bytes `ORB1` são gravados por último: um download cortado deixa o arquivo inválido e a placa volta ao orb compilado, nunca a um orb quebrado. `null` (nenhum orb atual) deixa a placa com o que tem.
 
 Código: `main/orb_sync.{h,cc}` (consulta e download), `OrbUi::SetSwapping` e `OrbUi::ReloadPack` (troca sem reiniciar). Medido na placa: 874 KB baixados e trocados em poucos segundos, dentro do minuto da consulta.
 

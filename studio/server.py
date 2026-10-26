@@ -31,7 +31,8 @@ PROJECT_DIR = STUDIO_DIR.parent
 WEB_DIR = STUDIO_DIR / "web"
 CONFIG_PATH = STUDIO_DIR / "orb.json"
 LAYOUTS_DIR = STUDIO_DIR / "layouts"
-LIBRARY_DIR = STUDIO_DIR / "library"  # arquivos .orb
+LIBRARY_DIR = STUDIO_DIR / "library"  # arquivos .orb gerados (fora do git)
+SOURCES_DIR = STUDIO_DIR / "orbs"     # fontes dos orbs do Criador (JS ou HTML/CSS), no git
 HEADER_PATH = PROJECT_DIR / "main" / "orb_studio_config.h"
 SDKCONFIG_PATH = PROJECT_DIR / "sdkconfig"
 
@@ -387,6 +388,68 @@ def current_orb() -> str:
         return ""
 
 
+# ---------------------------------------------------------------- fontes do Criador
+
+SOURCE_MODES = ("js", "css")
+MAX_CODE = 200_000
+
+
+def validate_source(src: dict) -> dict:
+    """Uma fonte de orb do Criador: metadados + codigo JS (draw) ou HTML/CSS."""
+    if not isinstance(src, dict):
+        raise ConfigError("fonte invalida")
+    orb_id = src.get("id", "")
+    if not ORB_ID.fullmatch(orb_id or ""):
+        raise ConfigError("id do orb: letras minusculas, numeros, _ e -, ate 40")
+    if orb_id in STYLES:
+        raise ConfigError(f"'{orb_id}' e o id de um tipo nativo; escolha outro")
+    if src.get("mode") not in SOURCE_MODES:
+        raise ConfigError("modo: js ou css")
+    out = {
+        "id": orb_id,
+        "name": (src.get("name") or orb_id).strip()[:40],
+        "description": (src.get("description") or "").strip()[:120],
+        "mode": src["mode"],
+        "fps": number(src.get("fps", 15), 5, 30, "fps", integer=True),
+        "seconds": number(src.get("seconds", 2), 0.5, 6, "duracao do laco"),
+        "background": [color(c, "fundo") for c in src.get("background", DEFAULTS["globe"]["background"])][:3],
+    }
+    if len(out["background"]) != 3:
+        raise ConfigError("fundo: 3 cores")
+    for key in ("js", "html", "css"):
+        code = src.get(key, "")
+        if not isinstance(code, str) or len(code) > MAX_CODE:
+            raise ConfigError(f"{key}: texto de ate {MAX_CODE // 1000} KB")
+        out[key] = code
+    if out["mode"] == "js" and "draw" not in out["js"]:
+        raise ConfigError("modo JS: defina function draw(ctx, t, state)")
+    return out
+
+
+def list_sources() -> list[dict]:
+    SOURCES_DIR.mkdir(exist_ok=True)
+    out = []
+    for path in sorted(SOURCES_DIR.glob("*.json")):
+        try:
+            out.append(validate_source(json.loads(path.read_text(encoding="utf-8"))))
+        except (ConfigError, json.JSONDecodeError, OSError):
+            continue
+    return out
+
+
+def save_source(src: dict) -> dict:
+    src = validate_source(src)
+    SOURCES_DIR.mkdir(exist_ok=True)
+    (SOURCES_DIR / f"{src['id']}.json").write_text(json.dumps(src, ensure_ascii=False, indent=2) + "\n",
+                                                   encoding="utf-8")
+    return src
+
+
+def delete_source(orb_id: str) -> None:
+    if ORB_ID.fullmatch(orb_id or ""):
+        (SOURCES_DIR / f"{orb_id}.json").unlink(missing_ok=True)
+
+
 def list_orbs() -> list[dict]:
     LIBRARY_DIR.mkdir(exist_ok=True)
     out = []
@@ -624,6 +687,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json({"layouts": list_layouts()})
             if path == "/api/orbs":
                 return self.send_json({"orbs": list_orbs(), "current": current_orb()})
+            if path == "/api/sources":
+                return self.send_json({"sources": list_sources()})
             if path == "/api/status":
                 return self.send_json({**console.status, "idf": str(idf_path() or ""), "project": str(PROJECT_DIR)})
             if path == "/api/console":
@@ -662,6 +727,12 @@ class Handler(BaseHTTPRequestHandler):
                 info = save_orb(body)
                 console.write("job", f"Orb gerado: studio/library/{info['id']}.orb ({info['frames']} quadros, {info['kb']} KB)")
                 return self.send_json({"orb": info, "orbs": list_orbs()})
+            if path == "/api/sources":
+                src = save_source(body.get("source"))
+                return self.send_json({"source": src, "sources": list_sources()})
+            if path == "/api/sources/delete":
+                delete_source(body.get("id", ""))
+                return self.send_json({"sources": list_sources()})
             if path == "/api/orbs/current":
                 set_current_orb(body.get("id", ""))
                 console.write("job", f"Orb atual: {body.get('id')} (o orb confere pelo Wi-Fi a cada minuto)")

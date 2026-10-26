@@ -64,6 +64,36 @@ std::string ToHex(const uint8_t* data, size_t len) {
     return out;
 }
 
+// sha256 do .orb ja gravado na particao (o tamanho total esta no cabecalho)
+std::string InstalledSha256(size_t expected_size) {
+    const esp_partition_t* part = esp_partition_find_first(ESP_PARTITION_TYPE_DATA, (esp_partition_subtype_t)0x40, "orbs");
+    uint8_t head[8];
+    uint32_t total = 0;
+    if (part == nullptr || esp_partition_read(part, 0, head, sizeof(head)) != ESP_OK || memcmp(head, "ORB1", 4) != 0) {
+        return "";
+    }
+    memcpy(&total, head + 4, 4);
+    if (total != expected_size || total > part->size) {
+        return "";
+    }
+    std::unique_ptr<uint8_t, decltype(&free)> buf((uint8_t*)heap_caps_malloc(kChunk, MALLOC_CAP_SPIRAM), &free);
+    if (!buf) {
+        return "";
+    }
+    mbedtls_sha256_context sha;
+    mbedtls_sha256_init(&sha);
+    mbedtls_sha256_starts(&sha, 0);
+    for (size_t off = 0; off < total; off += kChunk) {
+        size_t n = std::min<size_t>(kChunk, total - off);
+        esp_partition_read(part, off, buf.get(), n);
+        mbedtls_sha256_update(&sha, buf.get(), n);
+    }
+    uint8_t digest[32];
+    mbedtls_sha256_finish(&sha, digest);
+    mbedtls_sha256_free(&sha);
+    return ToHex(digest, sizeof(digest));
+}
+
 }  // namespace
 
 void OrbSync::SetServer(const std::string& ws_url) {
@@ -129,8 +159,16 @@ void OrbSync::Check() {
     if (cJSON_IsString(id) && cJSON_IsNumber(size) && cJSON_IsString(sha)) {
         Settings orb("orb", false);
         if (orb.GetString("sha256") != sha->valuestring) {
-            ESP_LOGI(TAG, "Servidor pede o orb \"%s\" (%d KB)", id->valuestring, size->valueint / 1024);
-            Download(id->valuestring, size->valueint, sha->valuestring);
+            if (InstalledSha256(size->valueint) == sha->valuestring) {
+                // Ja gravado pela USB (Studio): so registra, sem baixar de novo
+                Settings save("orb", true);
+                save.SetString("sha256", sha->valuestring);
+                save.SetString("id", id->valuestring);
+                ESP_LOGI(TAG, "Orb \"%s\" ja esta instalado", id->valuestring);
+            } else {
+                ESP_LOGI(TAG, "Servidor pede o orb \"%s\" (%d KB)", id->valuestring, size->valueint / 1024);
+                Download(id->valuestring, size->valueint, sha->valuestring);
+            }
         }
     }
     cJSON_Delete(root);

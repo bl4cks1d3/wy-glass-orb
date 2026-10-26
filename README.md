@@ -14,7 +14,8 @@ Baseado no [xiaozhi-esp32](https://github.com/78/xiaozhi-esp32) v1.6.8 (MIT), na
 - **Bateria** no topo da tela.
 - **Tela de informações** (arraste para o lado): firmware, chip, MAC, Wi-Fi, IP, servidor, bateria, memória e tempo ligado, com botão **CONFIGURAR** que reabre o portal.
 - **Telas interativas** desenhadas pelo servidor (layout JSON por MCP), por cima do globo.
-- **Orbs em arquivo** (`.orb`): animações feitas no Studio, gravadas na placa em segundos, sem compilar.
+- **Orbs em arquivo** (`.orb`): animações feitas no Studio, gravadas na placa em segundos, sem compilar, pela USB ou pelo Wi-Fi.
+- **Criador e Biblioteca de orbs** no Studio: escreva orbs em JavaScript ou HTML/CSS, veja a prévia e troque o orb da placa num clique.
 
 ## Hardware
 

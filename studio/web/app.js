@@ -34,6 +34,7 @@ document.querySelectorAll("nav button").forEach((btn) => btn.addEventListener("c
   document.querySelectorAll("nav button").forEach((b) => b.setAttribute("aria-selected", b === btn));
   document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t.id === `tab-${btn.dataset.tab}`));
   if (btn.dataset.tab === "build") refreshPorts();
+  if (btn.dataset.tab === "library") Library.render();
 }));
 
 // ---------------------------------------------------------------- personalizar
@@ -253,26 +254,36 @@ document.querySelectorAll("#console-filter button").forEach((b) => b.addEventLis
 const ORB_FPS = 15, ORB_SECONDS = 2;
 let currentOrb = "";
 
-// Troca o orb sem compilar: gera o .orb do tipo, marca como atual (Wi-Fi) e grava pela USB
-async function useOrb(style, button) {
+// Troca o orb sem compilar: gera o .orb, marca como atual (Wi-Fi) e grava pela USB se a placa estiver ligada.
+// Serve para os tipos nativos (useOrb) e para os orbs do Criador.
+async function installOrb(id, name, button, generate) {
+  const label = button.textContent;
   button.disabled = true;
   button.textContent = "Gerando…";
   try {
-    await exportOrb(style);
-    ({ current: currentOrb } = await api("/api/orbs/current", { id: style }));
+    await generate();
+    ({ current: currentOrb } = await api("/api/orbs/current", { id }));
     const port = $("port").value || (await api("/api/ports")).ports.find((p) => p.orb)?.device;
     if (port) {
       button.textContent = "Gravando…";
-      await api("/api/job", { action: "orb_flash", orb: style, port });
-      toast(`Gravando ${OrbPreview.STYLES[style].name} pela USB (~8 s). Acompanhe na aba Compilar e gravar.`);
+      await api("/api/job", { action: "orb_flash", orb: id, port });
+      toast(`Gravando ${name} pela USB (~8 s). Acompanhe na aba Compilar e gravar.`);
     } else {
-      toast(`${OrbPreview.STYLES[style].name} marcado como atual: o orb troca pelo Wi-Fi em até 1 minuto.`);
+      toast(`${name} marcado como atual: o orb troca pelo Wi-Fi em até 1 minuto.`);
     }
     renderGallery();
+    Library.render();
+    refreshOrbs();
   } catch {
+    // o erro ja apareceu no aviso
+  } finally {
     button.disabled = false;
-    button.textContent = "Usar no orb";
+    button.textContent = label;
   }
+}
+
+function useOrb(style, button) {
+  return installOrb(style, OrbPreview.STYLES[style].name, button, () => exportOrb(style));
 }
 
 // Renderiza o tipo escolhido estado por estado e manda os quadros (JPEG 192x192) ao servidor
@@ -328,7 +339,10 @@ $("btn-orb-flash").addEventListener("click", () =>
   $("header-info").innerHTML = `projeto <code>${status.project}</code><br>ESP-IDF ${status.idf ? `<code>${status.idf}</code>` : "<b style='color:var(--err)'>não encontrado</b>"}`;
   new LayoutEditor.Editor(api, toast).load();
   connectConsole();
-  refreshOrbs().then(renderGallery);
+  await refreshOrbs();
+  renderGallery();
+  await Creator.init(api, toast);
+  Library.init();
   refreshPorts().catch(() => {});
   window.addEventListener("beforeunload", (e) => { if (dirty) e.preventDefault(); });
 })();

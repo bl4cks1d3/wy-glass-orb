@@ -42,7 +42,8 @@ nav button {
 }
 nav button:hover { color: var(--text); background: var(--panel); }
 nav button[aria-selected="true"] { color: var(--accent); background: var(--panel-2); }
-.header-info { margin-left: auto; color: var(--muted); font-size: 12px; text-align: right; }
+.header-info { margin-left: auto; color: var(--muted); font-size: 12px; text-align: right; min-width: 0; overflow-wrap: anywhere; }
+header, nav { flex-wrap: wrap; }
 .header-info code { color: var(--text); }
 
 main { padding: 20px; max-width: 1400px; margin: 0 auto; }
@@ -132,6 +133,25 @@ input[type="color"] {
 }
 .screen canvas { width: 360px; height: 360px; display: block; image-rendering: auto; }
 .device-caption { text-align: center; color: var(--muted); font-size: 12px; margin-top: 10px; }
+
+/* ---------- biblioteca e criador ---------- */
+.lib-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.lib-head input { max-width: 260px; margin-left: auto; }
+.lib-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; margin-top: 12px; }
+.lib-card {
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 12px; text-align: center;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.lib-card canvas { width: 120px; height: 120px; border-radius: 50%; margin: 0 auto 6px; background: #000; display: block; }
+.lib-card b { font-size: 13px; }
+.lib-card span { color: var(--muted); font-size: 11px; line-height: 1.3; flex: 1; }
+.lib-card small { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: 1px; }
+.lib-card small em { color: var(--ok); font-style: normal; }
+.lib-card .actions { justify-content: center; margin-top: 6px; }
+.lib-card .btn { padding: 6px 10px; font-size: 12px; }
+textarea.code { font: 12px/1.5 var(--mono); tab-size: 2; white-space: pre; }
+.cr-error { color: #fecaca; background: #3b0d0d; border: 1px solid var(--err); border-radius: 8px; padding: 8px 10px;
+  font: 12px/1.4 var(--mono); white-space: pre-wrap; margin: 10px 0 0; }
 
 /* ---------- telas interativas ---------- */
 .layout-grid { grid-template-columns: 260px minmax(0, 1fr) 420px; gap: 20px; align-items: start; }

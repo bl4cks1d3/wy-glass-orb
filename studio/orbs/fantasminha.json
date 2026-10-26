@@ -1,0 +1,16 @@
+{
+  "id": "fantasminha",
+  "name": "Fantasminha",
+  "description": "Fantasma fofo em CSS que flutua e pisca",
+  "mode": "css",
+  "fps": 15,
+  "seconds": 2,
+  "background": [
+    "#1B1640",
+    "#0A0820",
+    "#04030E"
+  ],
+  "js": "",
+  "html": "<div class=\"corpo\">\n  <div class=\"olho e\"></div>\n  <div class=\"olho d\"></div>\n  <div class=\"boca\"></div>\n  <div class=\"barra\"><i></i><i></i><i></i><i></i></div>\n</div>\n<div class=\"sombra\"></div>",
+  "css": "/* Fantasminha em CSS: flutua, pisca e muda de cara com o estado (.state-...) */\n.corpo {\n  position: absolute; left: 51px; top: 34px; width: 90px; height: 106px;\n  background: #F4F7FF; border-radius: 45px 45px 12px 12px;\n  box-shadow: 0 0 22px #9EC5FF, inset -10px -6px 0 #D6E2FF;\n  animation: flutua 2s ease-in-out infinite;\n}\n.olho {\n  position: absolute; top: 36px; width: 14px; height: 20px; background: #1B1B2F; border-radius: 50%;\n  animation: pisca 2s linear infinite;\n}\n.olho.e { left: 22px; }\n.olho.d { right: 22px; }\n.boca {\n  position: absolute; left: 37px; top: 64px; width: 16px; height: 8px;\n  border: 3px solid #1B1B2F; border-top: none; border-radius: 0 0 12px 12px;\n}\n.barra { position: absolute; bottom: -12px; left: 0; width: 90px; height: 24px; display: flex; }\n.barra i { flex: 1; height: 24px; background: #F4F7FF; border-radius: 0 0 50% 50%; animation: onda 1s ease-in-out infinite; }\n.barra i:nth-child(even) { animation-name: onda2; }\n.sombra {\n  position: absolute; left: 66px; top: 164px; width: 60px; height: 10px; border-radius: 50%;\n  background: rgba(140, 170, 255, .25); animation: sombra 2s ease-in-out infinite;\n}\n@keyframes flutua { 50% { transform: translateY(-8px); } }\n@keyframes pisca { 0%, 88%, 100% { transform: scaleY(1); } 94% { transform: scaleY(.1); } }\n@keyframes onda { 50% { transform: translateY(5px); } }\n@keyframes onda2 { 0%, 100% { transform: translateY(5px); } 50% { transform: translateY(0); } }\n@keyframes sombra { 50% { transform: scaleX(.8); opacity: .6; } }\n\n/* Estados */\n.state-starting .corpo, .state-connecting .corpo { animation-duration: 1s; }\n.state-connecting .olho { animation: olha 2s ease-in-out infinite; }\n@keyframes olha { 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }\n.state-listening .olho { width: 16px; height: 24px; top: 34px; animation: none; }\n.state-listening .boca { left: 40px; width: 10px; height: 10px; border: 3px solid #1B1B2F; border-radius: 50%; }\n.state-speaking .boca { animation: fala .5s ease-in-out infinite; }\n@keyframes fala { 50% { height: 16px; } }\n.state-error .corpo, .state-error .barra i { background: #FFD6D6; }\n.state-error .corpo { box-shadow: 0 0 22px #FF6B6B, inset -10px -6px 0 #F5B5B5; }\n.state-error .olho { top: 44px; height: 4px; border-radius: 2px; transform: rotate(20deg); animation: none; }\n.state-error .olho.d { transform: rotate(-20deg); }\n.state-error .boca { top: 70px; border-top: 3px solid #1B1B2F; border-bottom: none; border-radius: 12px 12px 0 0; }\n"
+}

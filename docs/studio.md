@@ -29,6 +29,30 @@ Com o **servidor padrão** preenchido, um orb recém-gravado conecta direto nele
 
 **Salvar** grava `studio/orb.json`. **Aplicar no firmware** também gera `main/orb_studio_config.h` e atualiza a palavra de ativação no `sdkconfig`. Depois é preciso compilar e gravar.
 
+## Biblioteca
+
+Todos os orbs num lugar só: os seus (Criador) e os tipos nativos, com prévia animada, busca e o orb que está na placa marcado com **● no orb**. **Usar no orb** troca na hora, sem compilar; **Editar** abre o orb no Criador.
+
+## Criador
+
+Faz orbs novos em **JavaScript** ou em **HTML + CSS**. Cada orb é um arquivo `studio/orbs/<id>.json` (vai para o git) com nome, descrição, quadros por segundo, duração do laço, fundo e o código. A prévia mostra a tela de 240×240 como na placa, em qualquer um dos 6 estados, com os erros do código logo abaixo.
+
+**JavaScript:** escreva `function draw(ctx, t, state, time)`. O `ctx` é um canvas 2D de 192×192 (centro em 96, 96) já pintado com o fundo; `t` vai de 0 a 1 ao longo do laço; `state` é `starting`, `idle`, `connecting`, `listening`, `speaking` ou `error`; `time` é o tempo em segundos. Ajudantes em `orb`:
+
+| Ajudante | Uso |
+| --- | --- |
+| `orb.wave(t, n, fase)` | Seno de -1 a 1 que fecha o laço se `n` for inteiro |
+| `orb.ping(t, n)` | Vai e volta de 0 a 1 |
+| `orb.lerp`, `orb.clamp`, `orb.ease` | Interpolação, limite, suavização |
+| `orb.circle(ctx, x, y, r, cor)` | Círculo cheio |
+| `orb.TAU`, `orb.SIZE` | 2π e 192 |
+
+**HTML + CSS:** o HTML vai dentro de um quadro de 192×192 cuja raiz tem a classe do estado (`.state-idle`, `.state-listening`…). Use animações CSS com duração que divida o laço (2s, 1s, 0,5s), ou as variáveis `--t` (0 a 1) e `--time` (segundos). Para gerar os quadros, o Studio congela todas as animações no instante de cada quadro: por isso `animation-delay` do autor é ignorado; para defasar, use durações ou nomes de animação diferentes.
+
+**Salvar** grava a fonte; **Gerar .orb** renderiza os 6 estados (fps × duração quadros cada) e grava `studio/library/<id>.orb`; **Usar no orb** faz os dois e troca o orb na placa.
+
+Exemplos: `alien` (JS) e `fantasminha` (HTML/CSS). O código roda na própria página do Studio, no seu computador.
+
 ## Compilar e gravar
 
 | Botão | Faz |
@@ -107,6 +131,8 @@ Custo: o pintor roda no ESP32-S3 a cada 50 ms junto com áudio e Wi-Fi. Pontos e
 | `studio/web/` | Página (HTML, CSS e JavaScript sem build) |
 | `studio/orb.json` | Personalização (fonte da verdade) |
 | `studio/layouts/` | Telas desenhadas |
+| `studio/orbs/` | Fontes dos orbs do Criador (JS ou HTML/CSS) |
+| `studio/web/creator.js` | Motor que renderiza as fontes, Criador e Biblioteca |
 | `studio/orbpack.py` | Monta, confere e grava arquivos `.orb` (`info`, `flash`) |
 | `studio/library/` | Arquivos `.orb` gerados (fora do git) |
 | `main/orb_studio_config.h` | Gerado: aparência e textos do globo, rede do portal, servidor padrão |

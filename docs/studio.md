@@ -53,6 +53,30 @@ Faz orbs novos em **JavaScript** ou em **HTML + CSS**. Cada orb é um arquivo `s
 
 Exemplos: `alien` (JS) e `fantasminha` (HTML/CSS). O código roda na própria página do Studio, no seu computador.
 
+### Orbs de cartoon
+
+A biblioteca já vem com 31 personagens prontos para usar ou editar:
+
+| Grupo | Orbs |
+| --- | --- |
+| Bichos | Gatinho, Raposinha, Panda, Coruja, Pinguim, Sapinho, Peixinho, Polvo, Abelhinha, Dragãozinho |
+| Espaço | Alien, Astronauta, Disco voador, Planeta, Foguetinho, Estrelinha, Lua, Sol |
+| Criaturas | Fantasminha, Monstrinho, Slime, Robozinho, Caveirinha, Olho |
+| Natureza e comida | Nuvenzinha, Gotinha, Cactinho, Cogumelo, Abacatinho, Abóbora, Coraçãozinho |
+
+Todos mudam de cara com o estado: piscam no pronto, ficam sonolentos ao iniciar, olham para os lados ao conectar, arregalam os olhos ouvindo, falam com a boca abrindo e fechando e fazem X nos olhos no erro. Cada um tem um detalhe próprio, como o raio do disco ao ouvir, a chuva e o trovão da nuvem, as faíscas do dragão e o coração batendo no ritmo da fala.
+
+Os 29 em JavaScript (todos menos o Alien, que é JS próprio, e o Fantasminha, que é HTML/CSS) começam com o mesmo bloco de ajudantes, que você pode reaproveitar num orb novo:
+
+| Ajudante | Uso |
+| --- | --- |
+| `forma(ctx, path, cor, largura)` | Preenche um `Path2D` com contorno escuro de desenho animado |
+| `oval(x, y, rx, ry, giro)` | `Path2D` de uma elipse |
+| `luz(ctx, x, y, r, clara, escura)` | Gradiente de volume, com luz em cima à esquerda |
+| `rosto(ctx, t, state, { x, y, gap, r, boca, ... })` | Olhos, boca e bochechas que mudam com o estado (`boca: null` sem boca, `um: true` um olho só, `olhos: false` só a boca) |
+| `flutua(ctx, t, state, amplitude)` | Flutua de leve, mais rápido falando |
+| `fala`, `ouve`, `erro`, `ocupado` | Testes de estado |
+
 ## Compilar e gravar
 
 | Botão | Faz |

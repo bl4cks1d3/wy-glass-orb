@@ -2,6 +2,7 @@
 
 ## Não lançado
 
+- 29 orbs de cartoon novos na biblioteca (31 com Alien e Fantasminha): bichos, espaço, criaturas, natureza e comida, todos com expressões nos 6 estados. Ajudantes de desenho compartilhados (`forma`, `oval`, `luz`, `rosto`, `flutua`) no começo de cada fonte.
 - Criador de orbs no Studio: orbs em JavaScript (`draw(ctx, t, state)`) ou HTML/CSS (classes por estado), com prévia ao vivo dos 6 estados; fontes em `studio/orbs/`. Exemplos: Alien (JS) e Fantasminha (CSS).
 - Biblioteca de orbs no Studio: orbs criados e nativos, com prévia, busca, orb atual marcado e "Usar no orb".
 - A placa não baixa de novo um orb já gravado pela USB: compara o sha256 da partição antes.

@@ -45,7 +45,7 @@ Para personalizar o orb, compilar, gravar e desenhar telas sem terminal:
 python studio/server.py
 ```
 
-Abre um ambiente visual no navegador, com pré-visualização da tela redonda ([docs/studio.md](docs/studio.md)).
+Abre um ambiente visual no navegador, com pré-visualização da tela redonda ([docs/studio.md](docs/studio.md)). A biblioteca já traz 31 orbs de cartoon (gatinho, polvo, astronauta, disco voador, dragãozinho…) que trocam na placa pelo Wi-Fi, sem compilar.
 
 ## Documentação
 

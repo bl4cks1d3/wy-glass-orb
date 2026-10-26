@@ -246,6 +246,47 @@ document.querySelectorAll("#console-filter button").forEach((b) => b.addEventLis
   consoleEl.querySelectorAll("div").forEach((d) => (d.hidden = consoleFilter !== "all" && !d.classList.contains(consoleFilter)));
 }));
 
+// ---------------------------------------------------------------- orb de arquivo
+
+const ORB_FPS = 15, ORB_SECONDS = 2;
+
+// Renderiza o tipo escolhido estado por estado e manda os quadros (JPEG 192x192) ao servidor
+async function exportOrb() {
+  const style = config.style, def = OrbPreview.STYLES[style];
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = 240;
+  const p = new OrbPreview.Preview(canvas, { style, overlay: false, tickMs: 1000 / ORB_FPS, offscreen: true });
+  clearInterval(p.timer);  // quadros calculados aqui, no tempo do arquivo
+  p.setConfig(config);
+  const crop = document.createElement("canvas");
+  crop.width = crop.height = 192;
+  const cctx = crop.getContext("2d"), frames = {};
+  for (const state of OrbPreview.STATES) {
+    p.setState(state);
+    p.angle = 0;
+    frames[state] = [];
+    for (let i = 0; i < ORB_FPS * ORB_SECONDS; i++) {
+      p.tick();
+      cctx.drawImage(canvas, 24, 14, 192, 192, 0, 0, 192, 192);
+      frames[state].push(crop.toDataURL("image/jpeg", 0.85));
+    }
+  }
+  const { orb } = await api("/api/orbs", { id: style, name: def.name, fps: ORB_FPS, background: config.globe.background, frames });
+  toast(`Gerado studio/library/${orb.id}.orb: ${orb.frames} quadros, ${orb.kb} KB`);
+  refreshOrbs();
+}
+
+async function refreshOrbs() {
+  const { orbs } = await api("/api/orbs");
+  $("orb-file").innerHTML = orbs.map((o) => `<option value="${o.id}">${o.name} — ${o.frames} quadros, ${o.kb} KB</option>`).join("")
+    || `<option value="">biblioteca vazia: gere um .orb na aba Personalizar</option>`;
+}
+
+$("btn-export-orb").addEventListener("click", () => exportOrb().catch(() => {}));
+$("btn-orbs").addEventListener("click", refreshOrbs);
+$("btn-orb-flash").addEventListener("click", () =>
+  api("/api/job", { action: "orb_flash", orb: $("orb-file").value, port: $("port").value }).catch(() => {}));
+
 // ---------------------------------------------------------------- inicio
 
 (async function start() {
@@ -261,5 +302,6 @@ document.querySelectorAll("#console-filter button").forEach((b) => b.addEventLis
   $("header-info").innerHTML = `projeto <code>${status.project}</code><br>ESP-IDF ${status.idf ? `<code>${status.idf}</code>` : "<b style='color:var(--err)'>não encontrado</b>"}`;
   new LayoutEditor.Editor(api, toast).load();
   connectConsole();
+  refreshOrbs();
   window.addEventListener("beforeunload", (e) => { if (dirty) e.preventDefault(); });
 })();

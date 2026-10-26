@@ -10,6 +10,7 @@ textos do globo, rede do portal, servidor padrao) e atualiza a palavra de ativac
 As telas desenhadas ficam em studio/layouts/.
 """
 import argparse
+import base64
 import json
 import os
 import platform
@@ -23,11 +24,14 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+import orbpack
+
 STUDIO_DIR = Path(__file__).resolve().parent
 PROJECT_DIR = STUDIO_DIR.parent
 WEB_DIR = STUDIO_DIR / "web"
 CONFIG_PATH = STUDIO_DIR / "orb.json"
 LAYOUTS_DIR = STUDIO_DIR / "layouts"
+LIBRARY_DIR = STUDIO_DIR / "library"  # arquivos .orb
 HEADER_PATH = PROJECT_DIR / "main" / "orb_studio_config.h"
 SDKCONFIG_PATH = PROJECT_DIR / "sdkconfig"
 
@@ -325,6 +329,49 @@ def delete_layout(name: str) -> None:
         (LAYOUTS_DIR / f"{name}.json").unlink(missing_ok=True)
 
 
+# ---------------------------------------------------------------- biblioteca de .orb
+
+ORB_ID = re.compile(r"[a-z0-9_-]{1,40}")
+
+
+def save_orb(body: dict) -> dict:
+    """Recebe os quadros JPEG (base64) por estado, gerados pela pagina, e grava o .orb."""
+    orb_id = body.get("id", "")
+    if not ORB_ID.fullmatch(orb_id):
+        raise ConfigError("id do orb: letras minusculas, numeros, _ e -")
+    frames = {}
+    for state, items in (body.get("frames") or {}).items():
+        if state in orbpack.STATES:
+            frames[state] = [base64.b64decode(item.split(",", 1)[-1]) for item in items]
+    meta = {"id": orb_id, "name": ascii_text(body.get("name", orb_id), 40, "nome") or orb_id,
+            "fps": number(body.get("fps", 15), 1, 30, "fps", integer=True),
+            "background": [color(c, "fundo") for c in body.get("background", DEFAULTS["globe"]["background"])]}
+    try:
+        data = orbpack.build(meta, frames)
+    except orbpack.OrbPackError as e:
+        raise ConfigError(str(e))
+    LIBRARY_DIR.mkdir(exist_ok=True)
+    (LIBRARY_DIR / f"{orb_id}.orb").write_bytes(data)
+    return orb_info(LIBRARY_DIR / f"{orb_id}.orb")
+
+
+def orb_info(path: Path) -> dict:
+    header, frames = orbpack.read(path.read_bytes())
+    return {"id": header["id"], "name": header["name"], "fps": header["fps"], "frames": len(frames),
+            "kb": path.stat().st_size // 1024, "states": header["states"]}
+
+
+def list_orbs() -> list[dict]:
+    LIBRARY_DIR.mkdir(exist_ok=True)
+    out = []
+    for path in sorted(LIBRARY_DIR.glob("*.orb")):
+        try:
+            out.append(orb_info(path))
+        except (orbpack.OrbPackError, ValueError, KeyError):
+            continue
+    return out
+
+
 # ---------------------------------------------------------------- tarefas (build, gravacao, serial)
 
 class Console:
@@ -389,9 +436,11 @@ def run_job(name: str, steps: list[str]):
     ok = True
     try:
         for args in steps:
-            console.write("job", f"$ idf.py {args}")
+            # texto = argumentos do idf.py; lista = comando pronto (ex.: esptool)
+            console.write("job", f"$ idf.py {args}" if isinstance(args, str) else "$ " + " ".join(args))
             env = dict(os.environ, PYTHONUNBUFFERED="1", IDF_COMPONENT_CHECK_NEW_VERSION="0")
-            current_proc = subprocess.Popen(idf_command(args), cwd=PROJECT_DIR, env=env, stdout=subprocess.PIPE,
+            cmd = idf_command(args) if isinstance(args, str) else args
+            current_proc = subprocess.Popen(cmd, cwd=PROJECT_DIR, env=env, stdout=subprocess.PIPE,
                                             stderr=subprocess.STDOUT, bufsize=1, text=True, encoding="utf-8",
                                             errors="replace")
             for line in current_proc.stdout:
@@ -408,16 +457,22 @@ def run_job(name: str, steps: list[str]):
         job_lock.release()
 
 
-def start_job(action: str, port: str, baud: int = 921600):
+def start_job(action: str, port: str, baud: int = 921600, orb_id: str = ""):
+    if action == "orb_flash":
+        path = LIBRARY_DIR / f"{orb_id}.orb"
+        if not ORB_ID.fullmatch(orb_id or "") or not path.exists():
+            raise ConfigError("escolha um orb da biblioteca")
     steps = {
         "build": ["build"],
         "flash": [f"-p {port} -b {baud} flash"],
         "build_flash": ["build", f"-p {port} -b {baud} flash"],
         "fullclean": ["fullclean"],
+        # Grava so o arquivo na particao orbs: segundos, sem compilar
+        "orb_flash": [orbpack.flash_command(LIBRARY_DIR / f"{orb_id}.orb", port, baud)] if action == "orb_flash" else None,
     }.get(action)
     if steps is None:
         raise ConfigError("acao desconhecida")
-    if action in ("flash", "build_flash"):
+    if action in ("flash", "build_flash", "orb_flash"):
         if not re.fullmatch(r"(COM\d+|/dev/[\w./-]+)", port or ""):
             raise ConfigError("escolha a porta da placa")
         stop_monitor()  # a gravacao precisa da porta
@@ -430,7 +485,7 @@ def stop_job():
     proc = current_proc
     if proc and proc.poll() is None:
         if platform.system() == "Windows":
-            subprocess.run(["taskkill", "/F", "/T", "/PID", str(proc.pid)], capture_output=True)
+            subprocess.run(["taskkill", "/F", "/T", "/PID", str(proc.pid)], capture_output=True, check=False)
         else:
             proc.kill()
         console.write("job", "Tarefa interrompida.")
@@ -541,6 +596,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json({"ports": list_ports()})
             if path == "/api/layouts":
                 return self.send_json({"layouts": list_layouts()})
+            if path == "/api/orbs":
+                return self.send_json({"orbs": list_orbs()})
             if path == "/api/status":
                 return self.send_json({**console.status, "idf": str(idf_path() or ""), "project": str(PROJECT_DIR)})
             if path == "/api/console":
@@ -564,7 +621,7 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/job":
                 if body.get("apply_first"):
                     apply_config(body.get("config") or load_config())
-                start_job(body.get("action"), body.get("port", ""))
+                start_job(body.get("action"), body.get("port", ""), orb_id=body.get("orb", ""))
                 return self.send_json({"ok": True})
             if path == "/api/job/stop":
                 stop_job()
@@ -575,6 +632,10 @@ class Handler(BaseHTTPRequestHandler):
                 else:
                     stop_monitor()
                 return self.send_json({"ok": True})
+            if path == "/api/orbs":
+                info = save_orb(body)
+                console.write("job", f"Orb gerado: studio/library/{info['id']}.orb ({info['frames']} quadros, {info['kb']} KB)")
+                return self.send_json({"orb": info, "orbs": list_orbs()})
             if path == "/api/layouts":
                 save_layout(body.get("name", ""), body.get("layout"))
                 return self.send_json({"layouts": list_layouts()})

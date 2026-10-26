@@ -53,7 +53,7 @@ Entre os pontos, interpolação linear. Se a porcentagem não bater com a sua ba
 | phy_init | `0xF000` | 4 KB | Calibração do rádio |
 | model | `0x10000` | 4 MB (`0x3F0000`) | Modelos da esp-sr (MultiNet7 em inglês, ~2,7 MB) |
 | ota_0 | `0x400000` | 6 MB | App (~4,5 MB) |
-| ota_1 | `0xA00000` | 6 MB | Livre (sem OTA por enquanto) |
+| orbs | `0xA00000` | 6 MB | Arquivo `.orb` atual ([formato-orb.md](formato-orb.md)); antes era o `ota_1`, sem uso |
 
 A NVS fica no mesmo lugar que no firmware de fábrica e nas versões anteriores, então trocar de firmware não apaga o Wi-Fi nem o servidor salvos.
 

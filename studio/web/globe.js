@@ -408,6 +408,7 @@ const OrbPreview = (() => {
       this.fixedStyle = options.style || null;
       this.overlay = options.overlay !== false;
       this.tickMs = options.tickMs || 50;
+      this.offscreen = !!options.offscreen;  // exportacao de .orb: desenha mesmo fora da pagina
       this.timer = setInterval(() => this.tick(), this.tickMs);
     }
 
@@ -466,7 +467,7 @@ const OrbPreview = (() => {
     }
 
     tick() {
-      if (!this.cfg || !this.canvas.isConnected) return;
+      if (!this.cfg || (!this.offscreen && !this.canvas.isConnected)) return;
       this.refreshStyle();
       const st = this.style();
       // a galeria anda mais devagar por tick: compensa para girar no mesmo ritmo

@@ -14,6 +14,7 @@ Baseado no [xiaozhi-esp32](https://github.com/78/xiaozhi-esp32) v1.6.8 (MIT), na
 - **Bateria** no topo da tela.
 - **Tela de informações** (arraste para o lado): firmware, chip, MAC, Wi-Fi, IP, servidor, bateria, memória e tempo ligado, com botão **CONFIGURAR** que reabre o portal.
 - **Telas interativas** desenhadas pelo servidor (layout JSON por MCP), por cima do globo.
+- **Orbs em arquivo** (`.orb`): animações feitas no Studio, gravadas na placa em segundos, sem compilar.
 
 ## Hardware
 
@@ -51,6 +52,7 @@ Abre um ambiente visual no navegador, com pré-visualização da tela redonda ([
 | --- | --- |
 | [Primeiro uso](docs/primeiro-uso.md) | Gravar, configurar Wi-Fi e servidor pelo portal, trocar depois |
 | [Orb Studio](docs/studio.md) | Personalizar, compilar, gravar e desenhar telas pelo navegador |
+| [Formato .orb](docs/formato-orb.md) | Orbs em arquivo: trocar de orb sem compilar |
 | [Uso](docs/uso.md) | Telas, estados, gestos, voz, bateria, informações |
 | [Servidor](docs/servidor.md) | O `orb_gateway` do Wy Glass, protocolo WebSocket, teste de conexão |
 | [Hardware](docs/hardware.md) | Pinos, partições, memória |

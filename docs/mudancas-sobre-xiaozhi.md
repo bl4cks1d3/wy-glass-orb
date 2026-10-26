@@ -37,6 +37,7 @@ As mudanças estão marcadas com comentários `Wy Glass:` no código.
 | Arquivo | Mudança |
 | --- | --- |
 | `main/boards/sp-esp32-s3-1.28-box/sp-esp32-s3-1.28-box.cc` | `BatteryMonitor` (ADC + pino de carga, tabela do xiaozhi oficial); sem deep sleep; brilho reduzido (não apagado) ao economizar |
-| `partitions/v1/16m_orb.csv` | Partição `model` de 4 MB; apps em `0x400000` e `0xA00000` |
+| `partitions/v1/16m_orb.csv` | Partição `model` de 4 MB; app em `0x400000`; partição `orbs` (6 MB) no lugar do `ota_1` |
+| `main/display/orb_pack.{h,cc}` | Novo: lê o `.orb` da partição `orbs` e decodifica os quadros JPEG (`esp_jpeg`) |
 | `sdkconfig`, `sdkconfig.defaults.esp32s3` | `LV_USE_QRCODE`, `LV_FONT_MONTSERRAT_48`, tabela de partições do orb |
 | `CMakeLists.txt` | `PROJECT_VER` próprio (0.2.0) |

@@ -1,4 +1,5 @@
 #include "orb_ui.h"
+#include "orb_pack.h"
 #include "application.h"
 #include "board.h"
 #include "orb_studio_config.h"
@@ -130,6 +131,12 @@ Rgb StaticPixel(int x, int y) {
     return Add(c, kLine, outline);
 }
 
+// Fundo da tela com orb de arquivo: so o gradiente, com as cores do .orb
+Rgb PackBackgroundPixel(int x, int y, const uint32_t* bg) {
+    float t = std::hypot(x + 0.5f - 120.0f, y + 0.5f - 120.0f) / 170.0f;
+    return Gradient(Hex(bg[0]), Hex(bg[1]), Hex(bg[2]), 0.45f, t);
+}
+
 lv_obj_t* MakeLabel(lv_obj_t* parent, lv_color_t color, int letter_space) {
     lv_obj_t* label = lv_label_create(parent);
     lv_obj_set_style_text_font(label, &lv_font_montserrat_14, 0);
@@ -182,9 +189,13 @@ void OrbUi::BuildGlobe() {
         return;
     }
 
+    // Um .orb gravado na particao orbs tem prioridade sobre o orb compilado
+    pack_ = new OrbPack();
+    bool use_pack = pack_->Load();
+
     for (int y = 0; y < kScreen; y++) {
         for (int x = 0; x < kScreen; x++) {
-            Rgb c = StaticPixel(x, y);
+            Rgb c = use_pack ? PackBackgroundPixel(x, y, pack_->background()) : StaticPixel(x, y);
             background_buf_[y * kScreen + x] = Pack565((int)c.r, (int)c.g, (int)c.b);
             int bx = x - kBoxX, by = y - kBoxY;
             if (bx >= 0 && bx < kBox && by >= 0 && by < kBox) {
@@ -199,8 +210,10 @@ void OrbUi::BuildGlobe() {
     for (int i = 0; i < 256; i++) {
         kSinLut[i] = std::sin(i * 2.0f * (float)M_PI / 256.0f);
     }
-    BakeStyle();
-    if (kStyle == orb_studio::Style::kAmoeba) {
+    if (!use_pack) {
+        BakeStyle();
+    }
+    if (kStyle == orb_studio::Style::kAmoeba && !use_pack) {
         amoeba_angle_ = (uint8_t*)heap_caps_malloc(kBox * kBox, MALLOC_CAP_SPIRAM);
         amoeba_dist_ = (uint16_t*)heap_caps_malloc(kBox * kBox * 2, MALLOC_CAP_SPIRAM);
         const float cx = kCx - kBoxX, cy = kCy - kBoxY, to_lut = 256.0f / (2.0f * (float)M_PI);
@@ -212,7 +225,7 @@ void OrbUi::BuildGlobe() {
             }
         }
     }
-    if (kStyle == orb_studio::Style::kPlasma) {
+    if (kStyle == orb_studio::Style::kPlasma && !use_pack) {
         plasma_base_ = (uint8_t*)heap_caps_malloc(kBox * kBox, MALLOC_CAP_SPIRAM);
         plasma_ripple_ = (uint8_t*)heap_caps_malloc(kBox * kBox, MALLOC_CAP_SPIRAM);
         plasma_swirl_ = (uint8_t*)heap_caps_malloc(kBox * kBox, MALLOC_CAP_SPIRAM);
@@ -427,6 +440,10 @@ void OrbUi::RenderGlobe() {
     if (!globe_buf_) {
         return;
     }
+    if (pack_ && pack_->loaded()) {
+        RenderPack();
+        return;
+    }
     memset(light_, 0, kBox * kBox);
 
     switch (kStyle) {
@@ -460,6 +477,47 @@ void OrbUi::RenderGlobe() {
         default: break;
     }
     lv_obj_invalidate(globe_);
+}
+
+// ------------------------------------------------------------------ orb de arquivo
+
+void OrbUi::RenderPack() {
+    OrbPack::State state;
+    switch (last_state_) {
+        case kDeviceStateStarting: state = OrbPack::kStarting; break;
+        case kDeviceStateConnecting:
+        case kDeviceStateActivating:
+        case kDeviceStateUpgrading: state = OrbPack::kConnecting; break;
+        case kDeviceStateListening: state = OrbPack::kListening; break;
+        case kDeviceStateSpeaking: state = OrbPack::kSpeaking; break;
+        case kDeviceStateFatalError: state = OrbPack::kError; break;
+        default: state = OrbPack::kIdle; break;
+    }
+    if (state != pack_state_) {
+        pack_state_ = state;  // cada estado comeca do primeiro quadro
+        pack_start_us_ = esp_timer_get_time();
+        pack_frame_ = -1;
+    }
+    int first, count;
+    pack_->Range(state, first, count);
+    // Relogio real: se um quadro atrasar, pula para o certo em vez de esticar a animacao
+    int64_t elapsed_ms = (esp_timer_get_time() - pack_start_us_) / 1000;
+    int frame = first + (int)((elapsed_ms * pack_->fps() / 1000) % count);
+    if (frame == pack_frame_) {
+        return;  // mesmo quadro: nada a redesenhar
+    }
+    int us = pack_->Decode(frame, globe_buf_);
+    if (us < 0) {
+        return;
+    }
+    pack_frame_ = frame;
+    lv_obj_invalidate(globe_);
+    decode_us_ += us;
+    if (++decodes_ == 150) {
+        ESP_LOGI(TAG, "Orb de arquivo: %.1f ms por quadro (media de 150)", decode_us_ / 150 / 1000.0f);
+        decode_us_ = 0;
+        decodes_ = 0;
+    }
 }
 
 // ------------------------------------------------------------------ pintores

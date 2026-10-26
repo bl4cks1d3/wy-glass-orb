@@ -9,3 +9,5 @@ test/*/build.log
 # Backup completo da placa: a NVS tem a senha do Wi-Fi. So a copia sem NVS (.bin.gz) vai para o git.
 backup/*.bin
 __pycache__/
+# Orbs gerados pelo Studio (o codigo que os gera esta no repositorio)
+studio/library/*.orb

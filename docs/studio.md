@@ -92,6 +92,10 @@ Um tipo é um **pintor**: a cada quadro (~20 por segundo) ele escreve "luz" de 0
 
 Custo: o pintor roda no ESP32-S3 a cada 50 ms junto com áudio e Wi-Fi. Pontos e linhas (alguns milhares de `Splat`) são baratos; contas por pixel precisam de tabelas pré-calculadas no boot, como a esfera de plasma faz.
 
+## Orbs em arquivo
+
+"Gerar .orb deste tipo" renderiza o tipo escolhido (com as cores e ritmos da aba) em 2 s por estado, a 15 quadros por segundo, e grava `studio/library/<tipo>.orb`. Na aba Compilar e gravar, "Gravar orb pela USB" grava só esse arquivo na placa, em ~8 s, sem compilar. Formato e detalhes em [formato-orb.md](formato-orb.md).
+
 ## Arquivos
 
 | Arquivo | Papel |
@@ -100,4 +104,6 @@ Custo: o pintor roda no ESP32-S3 a cada 50 ms junto com áudio e Wi-Fi. Pontos e
 | `studio/web/` | Página (HTML, CSS e JavaScript sem build) |
 | `studio/orb.json` | Personalização (fonte da verdade) |
 | `studio/layouts/` | Telas desenhadas |
+| `studio/orbpack.py` | Monta, confere e grava arquivos `.orb` (`info`, `flash`) |
+| `studio/library/` | Arquivos `.orb` gerados (fora do git) |
 | `main/orb_studio_config.h` | Gerado: aparência e textos do globo, rede do portal, servidor padrão |

@@ -5,6 +5,8 @@
 #include <atomic>
 #include <cstdint>
 
+class OrbPack;
+
 // Wy Glass: orb holografico (globo em wireframe girando) no lugar da interface
 // de chat do Xiaozhi, e a tela de configuracao (QR da rede do portal). Segue o
 // estado da Application sozinho, por um timer do LVGL. As telas interativas
@@ -53,6 +55,12 @@ private:
     // Ameba: angulo (0-255) e distancia (x4) de cada pixel ao centro
     uint8_t* amoeba_angle_ = nullptr;
     uint16_t* amoeba_dist_ = nullptr;
+    OrbPack* pack_ = nullptr;
+    int pack_state_ = -1;
+    int pack_frame_ = -1;
+    int64_t pack_start_us_ = 0;
+    int64_t decode_us_ = 0;
+    int decodes_ = 0;
 
     float angle_ = 0.0f;
     float speed_ = 1.0f;
@@ -98,6 +106,8 @@ private:
     void BakeStyle();
     void BaseBlend(int x, int y, uint32_t rgb, float a);
     void BaseDot(float x, float y, float radius, uint32_t rgb, float a = 1.0f);
+    // Orb de arquivo (.orb na particao orbs): toca os quadros no lugar do pintor
+    void RenderPack();
     void PaintBrain();
     void PaintShock();
     void PaintZeta();

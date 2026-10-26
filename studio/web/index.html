@@ -102,6 +102,10 @@
           <button class="btn primary" id="btn-apply">Aplicar no firmware</button>
         </div>
         <p class="hint" style="text-align:center">Aplicar gera <code>main/orb_studio_config.h</code> e atualiza o <code>sdkconfig</code>. Depois, compile e grave.</p>
+        <div class="actions" style="justify-content:center;margin-top:10px">
+          <button class="btn" id="btn-export-orb">Gerar .orb deste tipo</button>
+        </div>
+        <p class="hint" style="text-align:center">Gera um arquivo na biblioteca com os 6 estados. Ele troca o orb sem compilar (aba Compilar e gravar).</p>
       </div>
     </div>
   </section>
@@ -185,6 +189,16 @@
           <button class="btn" data-job="fullclean">Limpar build</button>
         </div>
         <p class="hint">O primeiro build baixa os componentes e leva alguns minutos; os seguintes, menos de um.</p>
+      </div>
+      <div class="panel">
+        <h2>Orb de arquivo <small>sem compilar</small></h2>
+        <label class="field">Biblioteca (<code>studio/library</code>)
+          <select id="orb-file"></select></label>
+        <div class="actions" style="margin-top:8px">
+          <button class="btn primary" id="btn-orb-flash">Gravar orb pela USB</button>
+          <button class="btn" id="btn-orbs">Atualizar</button>
+        </div>
+        <p class="hint">Grava só o arquivo na partição <code>orbs</code>, em segundos. Com um arquivo gravado, a placa toca ele no lugar do orb compilado.</p>
       </div>
       <div class="panel">
         <h2>Monitor serial</h2>

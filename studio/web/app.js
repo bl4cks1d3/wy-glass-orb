@@ -39,6 +39,34 @@ document.querySelectorAll("nav button").forEach((btn) => btn.addEventListener("c
 // ---------------------------------------------------------------- personalizar
 
 const preview = new OrbPreview.Preview($("preview"));
+const minis = [];
+
+// Galeria de tipos: uma miniatura animada por tipo (mais lenta e sem textos)
+function renderGallery() {
+  const box = $("style-gallery");
+  box.innerHTML = "";
+  minis.length = 0;
+  for (const [id, def] of Object.entries(OrbPreview.STYLES)) {
+    const card = document.createElement("button");
+    card.className = "style-card";
+    card.type = "button";
+    card.dataset.style = id;
+    card.setAttribute("aria-pressed", config.style === id);
+    card.innerHTML = `<canvas width="240" height="240"></canvas><b>${def.name}</b><span>${def.description}</span>`;
+    card.addEventListener("click", () => selectStyle(id));
+    box.appendChild(card);
+    const mini = new OrbPreview.Preview(card.querySelector("canvas"), { style: id, tickMs: 100, overlay: false });
+    mini.setConfig(config);
+    minis.push(mini);
+  }
+}
+
+function selectStyle(id) {
+  config.style = id;
+  document.querySelectorAll(".style-card").forEach((c) => c.setAttribute("aria-pressed", c.dataset.style === id));
+  preview.refreshStyle();
+  markDirty();
+}
 
 const getPath = (obj, path) => path.split(".").reduce((o, k) => o?.[k], obj);
 function setPath(obj, path, value) {
@@ -63,7 +91,7 @@ function bindInput(input) {
     setPath(config, path, v);
     show();
     markDirty();
-    if (path.startsWith("globe.")) preview.setConfig(config); else preview.cfg = config;
+    if (path.startsWith("globe.")) { preview.setConfig(config); minis.forEach((m) => m.setConfig(config)); }
   });
   input._sync = () => {
     const v = getPath(config, path);
@@ -127,6 +155,8 @@ document.querySelectorAll("#screen-tabs button").forEach((b) => b.addEventListen
 
 $("btn-save").addEventListener("click", async () => {
   config = (await api("/api/config", { config })).config;
+  preview.setConfig(config);
+  renderGallery();
   syncInputs();
   toast("Salvo em studio/orb.json (ainda não aplicado no firmware)");
 });
@@ -142,6 +172,7 @@ $("btn-reset").addEventListener("click", () => {
   if (!confirm("Voltar toda a personalização para o padrão?")) return;
   config = JSON.parse(JSON.stringify(defaults));
   preview.setConfig(config);
+  renderGallery();
   syncInputs();
   renderStateFields();
   markDirty();
@@ -222,6 +253,7 @@ document.querySelectorAll("#console-filter button").forEach((b) => b.addEventLis
   config = data.config;
   defaults = data.defaults;
   preview.setConfig(config);
+  renderGallery();
   document.querySelectorAll("#tab-customize [data-path]").forEach(bindInput);
   syncInputs();
   selectState("idle");

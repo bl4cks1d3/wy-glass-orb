@@ -9,7 +9,7 @@ As mudanças estão marcadas com comentários `Wy Glass:` no código.
 | Arquivo | Mudança |
 | --- | --- |
 | `main/display/orb_ui.{h,cc}` | Novo: globo holográfico no lugar do chat; tela de configuração com QR da rede do portal; tela de informações; bateria |
-| `main/orb_studio_config.h` | Novo, gerado pelo Orb Studio: cores, ritmo e textos do globo, prefixo da rede do portal, servidor padrão |
+| `main/orb_studio_config.h` | Novo, gerado pelo Orb Studio: tipo de orb, cores, ritmo e textos, prefixo da rede do portal, servidor padrão |
 | `main/display/screen_layout.{h,cc}` | Novo: telas interativas declarativas (layout JSON → LVGL; toques → `notifications/ui_event`) |
 | `main/boards/sp-esp32-s3-1.28-box/sp-esp32-s3-1.28-box.cc` | A interface do XiaoZhi fica escondida sob o `OrbUi`; touch como entrada do LVGL; filtro de toque fantasma (3 leituras); arrastar alterna as informações; botão CONFIGURAR; `self.screen.render` e `self.screen.close` |
 | `main/boards/sp-esp32-s3-1.28-box/config.h` | `TOUCH_MIRROR_X/Y`; pinos da bateria (GPIO1, GPIO41) |

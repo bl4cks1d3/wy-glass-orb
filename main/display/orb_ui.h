@@ -46,6 +46,13 @@ private:
     uint8_t* base_ = nullptr;
     uint8_t* light_ = nullptr;
     uint16_t* globe_buf_ = nullptr;
+    // Esfera de plasma: brilho fixo e fases por pixel, calculados uma vez
+    uint8_t* plasma_base_ = nullptr;
+    uint8_t* plasma_ripple_ = nullptr;
+    uint8_t* plasma_swirl_ = nullptr;
+    // Ameba: angulo (0-255) e distancia (x4) de cada pixel ao centro
+    uint8_t* amoeba_angle_ = nullptr;
+    uint16_t* amoeba_dist_ = nullptr;
 
     float angle_ = 0.0f;
     float speed_ = 1.0f;
@@ -67,6 +74,25 @@ private:
     void UpdateBattery();
     void UpdateInfo();
     void RenderGlobe();
+
+    // Pintores dos tipos de orb (orb_studio::kStyle): escrevem luz em light_
+    void AddLight(int x, int y, float a);
+    void Splat(float x, float y, float a);
+    void Disc(float x, float y, float radius, float a);
+    void Glow(float x, float y, float sigma, float peak);
+    void Circle(float x, float y, float radius, float a);
+    void PaintGlobe();
+    void PaintRings();
+    void PaintPlasma();
+    void PaintWave();
+    void PaintParticles();
+    void PaintPulse();
+
+    // Ameba: personagem colorido, pintado direto em globe_buf_ depois da base
+    void PaintAmoeba();
+    void BlendPixel(int x, int y, uint32_t rgb, float a);
+    void Dot(float x, float y, float radius, uint32_t rgb, float a = 1.0f);
+    void Ellipse(float x, float y, float rx, float ry, uint32_t rgb, int half = 0);
     void ApplyState(int state);
     void ShowConfig(bool show);
     void Tick();

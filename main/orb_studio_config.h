@@ -15,6 +15,10 @@ struct StateStyle {
     const char* text;    // texto embaixo do globo (sem acentos: fonte Montserrat)
 };
 
+// Tipos de orb (um pintor para cada em orb_ui.cc)
+enum class Style { kGlobe, kRings, kPlasma, kWave, kParticles, kPulse, kAmoeba };
+constexpr Style kStyle = Style::kGlobe;
+
 constexpr const char* kTitle = "WY GLASS ORB";
 constexpr const char* kApPrefix = "WyGlass";
 constexpr const char* kDefaultServer = "";

@@ -76,6 +76,16 @@ uint16_t Pack565(int r, int g, int b) {
 
 constexpr Rgb kLine = Hex(orb_studio::kLineColor);
 
+// O que cada tipo de orb tem de fixo (desenhado uma vez no boot)
+constexpr auto kStyle = orb_studio::kStyle;
+constexpr bool kSphereFill = kStyle == orb_studio::Style::kGlobe || kStyle == orb_studio::Style::kPlasma ||
+                             kStyle == orb_studio::Style::kParticles;
+constexpr bool kParallels = kStyle == orb_studio::Style::kGlobe;
+constexpr bool kOutline = kStyle == orb_studio::Style::kGlobe || kStyle == orb_studio::Style::kParticles;
+
+// Seno em 256 passos, para os efeitos calculados por pixel
+float kSinLut[256];
+
 // Fundo e partes fixas do globo (esfera, paralelos, contorno) no pixel (x, y)
 Rgb StaticPixel(int x, int y) {
     float px = x + 0.5f, py = y + 0.5f;
@@ -91,7 +101,7 @@ Rgb StaticPixel(int x, int y) {
     float halo = 0.12f * std::exp(-(d / (1.05f * kR)) * (d / (1.05f * kR)) * 2.0f);
     c = Add(c, Hex(orb_studio::kHaloColor), halo);
 
-    float inside = std::clamp(kR + 0.5f - d, 0.0f, 1.0f);
+    float inside = kSphereFill ? std::clamp(kR + 0.5f - d, 0.0f, 1.0f) : 0.0f;
     if (inside > 0) {
         float gx = kCx - 0.3f * kR, gy = kCy - 0.35f * kR;
         float t = std::hypot(px - gx, py - gy) / (1.3f * kR);
@@ -99,7 +109,7 @@ Rgb StaticPixel(int x, int y) {
                               Hex(orb_studio::kSphere[2]), 0.65f, t);
 
         // Paralelos: linhas horizontais dentro da esfera
-        for (int i = -5; i <= 5; i++) {
+        for (int i = -5; kParallels && i <= 5; i++) {
             float lat = (i / 6.0f) * (float)M_PI_2;
             float ly = kCy + std::sin(lat) * kR;
             float rx = std::cos(lat) * kR;
@@ -112,6 +122,9 @@ Rgb StaticPixel(int x, int y) {
     }
 
     // Contorno com brilho
+    if (!kOutline) {
+        return c;
+    }
     float edge = std::fabs(d - kR);
     float outline = 0.65f * std::clamp(1.0f - edge / 0.9f, 0.0f, 1.0f) + 0.3f * std::exp(-edge / 3.5f);
     return Add(c, kLine, outline);
@@ -179,6 +192,39 @@ void OrbUi::BuildGlobe() {
                 p[0] = (uint8_t)std::min(c.r, 255.0f);
                 p[1] = (uint8_t)std::min(c.g, 255.0f);
                 p[2] = (uint8_t)std::min(c.b, 255.0f);
+            }
+        }
+    }
+
+    for (int i = 0; i < 256; i++) {
+        kSinLut[i] = std::sin(i * 2.0f * (float)M_PI / 256.0f);
+    }
+    if (kStyle == orb_studio::Style::kAmoeba) {
+        amoeba_angle_ = (uint8_t*)heap_caps_malloc(kBox * kBox, MALLOC_CAP_SPIRAM);
+        amoeba_dist_ = (uint16_t*)heap_caps_malloc(kBox * kBox * 2, MALLOC_CAP_SPIRAM);
+        const float cx = kCx - kBoxX, cy = kCy - kBoxY, to_lut = 256.0f / (2.0f * (float)M_PI);
+        for (int y = 0; y < kBox && amoeba_dist_; y++) {
+            for (int x = 0; x < kBox; x++) {
+                float dx = x + 0.5f - cx, dy = y + 0.5f - cy;
+                amoeba_angle_[y * kBox + x] = (uint8_t)((int)std::lround(std::atan2(dy, dx) * to_lut) & 255);
+                amoeba_dist_[y * kBox + x] = (uint16_t)(std::hypot(dx, dy) * 4.0f);
+            }
+        }
+    }
+    if (kStyle == orb_studio::Style::kPlasma) {
+        plasma_base_ = (uint8_t*)heap_caps_malloc(kBox * kBox, MALLOC_CAP_SPIRAM);
+        plasma_ripple_ = (uint8_t*)heap_caps_malloc(kBox * kBox, MALLOC_CAP_SPIRAM);
+        plasma_swirl_ = (uint8_t*)heap_caps_malloc(kBox * kBox, MALLOC_CAP_SPIRAM);
+        const float cx = kCx - kBoxX, cy = kCy - kBoxY, to_lut = 256.0f / (2.0f * (float)M_PI);
+        for (int y = 0; y < kBox && plasma_swirl_; y++) {
+            for (int x = 0; x < kBox; x++) {
+                float dx = x + 0.5f - cx, dy = y + 0.5f - cy, d = std::hypot(dx, dy);
+                float r = d / kR, inside = std::clamp(kR + 0.5f - d, 0.0f, 1.0f);
+                float base = inside * (0.18f + 0.82f * std::pow(std::max(0.0f, 1.0f - r), 1.8f));
+                int k = y * kBox + x;
+                plasma_base_[k] = (uint8_t)(base * 255.0f);
+                plasma_ripple_[k] = (uint8_t)((int)(d * 0.25f * to_lut) & 255);
+                plasma_swirl_[k] = (uint8_t)((int)((3.0f * std::atan2(dy, dx) + d * 0.07f) * to_lut) & 255);
             }
         }
     }
@@ -382,56 +428,14 @@ void OrbUi::RenderGlobe() {
     }
     memset(light_, 0, kBox * kBox);
 
-    auto add = [this](int x, int y, float a) {
-        if (x < 0 || y < 0 || x >= kBox || y >= kBox || a <= 0) {
-            return;
-        }
-        uint8_t& v = light_[y * kBox + x];
-        v = (uint8_t)std::min(255, v + (int)(a * 255.0f));
-    };
-    // Ponto com anti-aliasing: divide a luz entre os 4 pixels vizinhos
-    auto splat = [&add](float x, float y, float a) {
-        int x0 = (int)std::floor(x - 0.5f), y0 = (int)std::floor(y - 0.5f);
-        float fx = x - 0.5f - x0, fy = y - 0.5f - y0;
-        add(x0, y0, a * (1 - fx) * (1 - fy));
-        add(x0 + 1, y0, a * fx * (1 - fy));
-        add(x0, y0 + 1, a * (1 - fx) * fy);
-        add(x0 + 1, y0 + 1, a * fx * fy);
-    };
-
-    const float cx = kCx - kBoxX, cy = kCy - kBoxY;
-
-    // Meridianos girando
-    for (int i = 0; i < kMeridians; i++) {
-        float phi = (i / (float)kMeridians) * (float)M_PI + angle_;
-        float s = std::sin(phi);
-        float depth = std::fabs(s);
-        float alpha = (0.12f + depth * 0.5f) * (0.8f + depth * 0.5f) * 0.55f;
-        for (int j = 0; j <= kMeridianSamples; j++) {
-            float theta = (j / (float)kMeridianSamples) * (float)M_PI;
-            splat(cx + kR * std::sin(theta) * s, cy + kR * std::cos(theta), alpha);
-        }
-    }
-
-    // Pontos luminosos na face visivel
-    for (int i = 0; i < kDots; i++) {
-        float theta = i * 2.399f;
-        float y = 1.0f - (i / (float)(kDots - 1)) * 2.0f;
-        float ring = std::sqrt(std::max(0.0f, 1.0f - y * y));
-        float x = std::cos(theta + angle_ * 0.5f) * ring;
-        float z = std::sin(theta + angle_ * 0.5f) * ring;
-        if (z < -0.1f) {
-            continue;
-        }
-        float px = cx + x * kR, py = cy + y * kR;
-        float radius = z > 0.7f ? 1.6f : 1.0f;
-        float alpha = 0.3f + z * 0.6f;
-        for (int yy = (int)(py - radius - 1); yy <= (int)(py + radius + 1); yy++) {
-            for (int xx = (int)(px - radius - 1); xx <= (int)(px + radius + 1); xx++) {
-                float d = std::hypot(xx + 0.5f - px, yy + 0.5f - py);
-                add(xx, yy, alpha * std::clamp(radius + 0.5f - d, 0.0f, 1.0f));
-            }
-        }
+    switch (kStyle) {
+        case orb_studio::Style::kGlobe: PaintGlobe(); break;
+        case orb_studio::Style::kRings: PaintRings(); break;
+        case orb_studio::Style::kPlasma: PaintPlasma(); break;
+        case orb_studio::Style::kWave: PaintWave(); break;
+        case orb_studio::Style::kParticles: PaintParticles(); break;
+        case orb_studio::Style::kPulse: PaintPulse(); break;
+        case orb_studio::Style::kAmoeba: break;  // pintada depois, em cores, sobre a base
     }
 
     // Compoe base + luz na cor do estado
@@ -443,7 +447,368 @@ void OrbUi::RenderGlobe() {
         int l = light_[k];
         globe_buf_[k] = Pack565(b[0] + ((l * tr) >> 8), b[1] + ((l * tg) >> 8), b[2] + ((l * tb) >> 8));
     }
+    if (kStyle == orb_studio::Style::kAmoeba) {
+        PaintAmoeba();
+    }
     lv_obj_invalidate(globe_);
+}
+
+// ------------------------------------------------------------------ pintores
+// Coordenadas dentro do quadrado do globo (kBox x kBox); luz de 0 a 1 por pixel.
+
+void OrbUi::AddLight(int x, int y, float a) {
+    if (x < 0 || y < 0 || x >= kBox || y >= kBox || a <= 0) {
+        return;
+    }
+    uint8_t& v = light_[y * kBox + x];
+    v = (uint8_t)std::min(255, v + (int)(a * 255.0f));
+}
+
+// Ponto com anti-aliasing: divide a luz entre os 4 pixels vizinhos
+void OrbUi::Splat(float x, float y, float a) {
+    int x0 = (int)std::floor(x - 0.5f), y0 = (int)std::floor(y - 0.5f);
+    float fx = x - 0.5f - x0, fy = y - 0.5f - y0;
+    AddLight(x0, y0, a * (1 - fx) * (1 - fy));
+    AddLight(x0 + 1, y0, a * fx * (1 - fy));
+    AddLight(x0, y0 + 1, a * (1 - fx) * fy);
+    AddLight(x0 + 1, y0 + 1, a * fx * fy);
+}
+
+void OrbUi::Disc(float px, float py, float radius, float a) {
+    for (int yy = (int)(py - radius - 1); yy <= (int)(py + radius + 1); yy++) {
+        for (int xx = (int)(px - radius - 1); xx <= (int)(px + radius + 1); xx++) {
+            float d = std::hypot(xx + 0.5f - px, yy + 0.5f - py);
+            AddLight(xx, yy, a * std::clamp(radius + 0.5f - d, 0.0f, 1.0f));
+        }
+    }
+}
+
+// Brilho redondo e suave (gaussiano)
+void OrbUi::Glow(float px, float py, float sigma, float peak) {
+    int r = (int)(sigma * 3.0f);
+    float k = 1.0f / (2.0f * sigma * sigma);
+    for (int yy = (int)py - r; yy <= (int)py + r; yy++) {
+        for (int xx = (int)px - r; xx <= (int)px + r; xx++) {
+            float dx = xx + 0.5f - px, dy = yy + 0.5f - py;
+            AddLight(xx, yy, peak * std::exp(-(dx * dx + dy * dy) * k));
+        }
+    }
+}
+
+void OrbUi::Circle(float px, float py, float radius, float a) {
+    int n = std::max(24, (int)(2.0f * (float)M_PI * radius));
+    for (int j = 0; j < n; j++) {
+        float t = j * 2.0f * (float)M_PI / n;
+        Splat(px + radius * std::cos(t), py + radius * std::sin(t), a);
+    }
+}
+
+// Globo holografico: meridianos girando e pontos na face visivel
+void OrbUi::PaintGlobe() {
+    const float cx = kCx - kBoxX, cy = kCy - kBoxY;
+    for (int i = 0; i < kMeridians; i++) {
+        float phi = (i / (float)kMeridians) * (float)M_PI + angle_;
+        float s = std::sin(phi);
+        float depth = std::fabs(s);
+        float alpha = (0.12f + depth * 0.5f) * (0.8f + depth * 0.5f) * 0.55f;
+        for (int j = 0; j <= kMeridianSamples; j++) {
+            float theta = (j / (float)kMeridianSamples) * (float)M_PI;
+            Splat(cx + kR * std::sin(theta) * s, cy + kR * std::cos(theta), alpha);
+        }
+    }
+    for (int i = 0; i < kDots; i++) {
+        float theta = i * 2.399f;
+        float y = 1.0f - (i / (float)std::max(1, kDots - 1)) * 2.0f;
+        float ring = std::sqrt(std::max(0.0f, 1.0f - y * y));
+        float x = std::cos(theta + angle_ * 0.5f) * ring;
+        float z = std::sin(theta + angle_ * 0.5f) * ring;
+        if (z < -0.1f) {
+            continue;
+        }
+        Disc(cx + x * kR, cy + y * kR, z > 0.7f ? 1.6f : 1.0f, 0.3f + z * 0.6f);
+    }
+}
+
+// Aneis orbitais: tres orbitas inclinadas com um cometa cada, em volta de um nucleo
+void OrbUi::PaintRings() {
+    const float cx = kCx - kBoxX, cy = kCy - kBoxY;
+    static const float kA[3] = {0.98f, 0.80f, 0.62f};
+    static const float kRatio[3] = {0.36f, 0.55f, 0.28f};
+    static const float kRot[3] = {0.35f, -0.65f, 1.30f};
+    static const float kSpin[3] = {2.4f, -3.6f, 5.0f};
+    Glow(cx, cy, 9.0f, 0.95f);
+    for (int o = 0; o < 3; o++) {
+        float a = kR * kA[o], b = a * kRatio[o];
+        float cr = std::cos(kRot[o]), sr = std::sin(kRot[o]);
+        auto point = [&](float t, float& x, float& y) {
+            float ex = a * std::cos(t), ey = b * std::sin(t);
+            x = cx + ex * cr - ey * sr;
+            y = cy + ex * sr + ey * cr;
+        };
+        float x, y;
+        int n = (int)(2.0f * (float)M_PI * a);
+        for (int j = 0; j < n; j++) {
+            point(j * 2.0f * (float)M_PI / n, x, y);
+            Splat(x, y, 0.10f);
+        }
+        float head = angle_ * kSpin[o] + o * 2.1f, dir = kSpin[o] > 0 ? 1.0f : -1.0f;
+        for (int k = 0; k < 90; k++) {
+            float w = 1.0f - k / 90.0f;
+            point(head - dir * k * 0.02f, x, y);
+            Splat(x, y, 0.85f * w * w);
+        }
+        point(head, x, y);
+        Disc(x, y, 1.8f, 0.9f);
+    }
+}
+
+// Esfera de plasma: luz suave com ondas e redemoinho, por pixel (tabelas do boot)
+void OrbUi::PaintPlasma() {
+    if (!plasma_swirl_) {
+        return;
+    }
+    const float to_lut = 256.0f / (2.0f * (float)M_PI);
+    uint8_t ripple_phase = (uint8_t)((int)(angle_ * 4.0f * to_lut) & 255);
+    uint8_t swirl_phase = (uint8_t)((int)(angle_ * 2.2f * to_lut) & 255);
+    for (int k = 0; k < kBox * kBox; k++) {
+        int base = plasma_base_[k];
+        if (base == 0) {
+            continue;
+        }
+        float ripple = kSinLut[(uint8_t)(plasma_ripple_[k] - ripple_phase)];
+        float swirl = kSinLut[(uint8_t)(plasma_swirl_[k] + swirl_phase)];
+        int l = (int)(base * (0.75f + 0.15f * ripple + 0.12f * swirl));
+        light_[k] = (uint8_t)std::clamp(l, 0, 255);
+    }
+}
+
+// Onda de voz: tres ondas circulares entrelacadas
+void OrbUi::PaintWave() {
+    const float cx = kCx - kBoxX, cy = kCy - kBoxY, r0 = kR * 0.6f;
+    Glow(cx, cy, 14.0f, 0.35f);
+    for (int s = 0; s < 3; s++) {
+        float alpha = 0.6f - s * 0.15f;
+        for (int j = 0; j < 540; j++) {
+            float th = j * 2.0f * (float)M_PI / 540.0f;
+            float rr = r0 + 9.0f * std::sin(3.0f * th + angle_ * 2.2f + s * 2.1f) * std::sin(angle_ * 0.9f + s) +
+                       5.0f * std::sin(5.0f * th - angle_ * 3.3f + s * 1.3f);
+            Splat(cx + rr * std::cos(th), cy + rr * std::sin(th), alpha);
+        }
+    }
+}
+
+// Nuvem de particulas: esfera de pontos 3D inclinada, girando
+void OrbUi::PaintParticles() {
+    const float cx = kCx - kBoxX, cy = kCy - kBoxY, radius = kR * 0.92f;
+    int n = kDots > 0 ? std::min(kDots * 3, 300) : 150;
+    float ct = std::cos(0.45f), st = std::sin(0.45f);
+    for (int i = 0; i < n; i++) {
+        float y = 1.0f - (i / (float)std::max(1, n - 1)) * 2.0f;
+        float ring = std::sqrt(std::max(0.0f, 1.0f - y * y));
+        float th = i * 2.399f + angle_;
+        float x = std::cos(th) * ring, z = std::sin(th) * ring;
+        float y2 = y * ct - z * st, z2 = y * st + z * ct;
+        float depth = (z2 + 1.0f) * 0.5f;
+        Disc(cx + x * radius, cy + y2 * radius, 0.6f + 1.3f * depth, 0.12f + 0.8f * depth);
+    }
+}
+
+// Pulso minimalista: nucleo que respira e dois aneis que se expandem
+void OrbUi::PaintPulse() {
+    const float cx = kCx - kBoxX, cy = kCy - kBoxY;
+    float frac = phase_ms_ / (float)pulse_period_ms_;
+    float core = 14.0f + 4.0f * std::sin(2.0f * (float)M_PI * frac);
+    Glow(cx, cy, core * 0.6f, 0.6f);
+    Disc(cx, cy, core, 0.8f);
+    for (int r = 0; r < 2; r++) {
+        float f = std::fmod(frac + r * 0.5f, 1.0f);
+        float w = 1.0f - f;
+        Circle(cx, cy, core + (kR - core) * f, 0.55f * w * std::sqrt(w));
+    }
+}
+
+// ------------------------------------------------------------------ ameba
+// Personagem: corpo verde-agua ondulando, contorno escuro, bracos e pes, manchas, olhos e boca.
+// O estado muda a expressao; a velocidade do estado faz ondular e o pulso faz respirar.
+
+namespace {
+
+constexpr uint32_t kAmoebaLight = 0xA8F7E6;
+constexpr uint32_t kAmoebaShadow = 0x4FD3BA;
+constexpr uint32_t kAmoebaLine = 0x1C2B2B;
+constexpr uint32_t kAmoebaTeeth = 0xF4FBF9;
+
+struct Spot {
+    float x, y, r;  // em fracoes do raio do corpo
+    uint32_t color;
+};
+
+constexpr Spot kSpots[] = {
+    {-0.10f, -0.62f, 0.12f, 0xF2876B}, {0.26f, -0.74f, 0.07f, 0xF48FB1}, {-0.58f, -0.24f, 0.10f, 0xF5A651},
+    {0.60f, -0.22f, 0.10f, 0xF5A651},  {-0.54f, 0.30f, 0.10f, 0xF5A651}, {0.58f, 0.30f, 0.06f, 0xF48FB1},
+    {-0.30f, 0.58f, 0.06f, 0xF48FB1},  {0.38f, 0.56f, 0.06f, 0xF48FB1},  {0.00f, 0.50f, 0.09f, 0x35B6C9},
+    {-0.66f, 0.02f, 0.04f, 0x3BBFA5},  {0.42f, -0.48f, 0.035f, 0x3BBFA5},
+};
+
+// Saliencia suave no contorno (bracos e pes), por angulo
+float Bump(float th, float center, float width, float height) {
+    float d = std::remainder(th - center, 2.0f * (float)M_PI);
+    return height * std::exp(-(d * d) / (width * width));
+}
+
+Rgb Unpack565(uint16_t v) {
+    return {(float)((v >> 11) << 3), (float)(((v >> 5) & 0x3F) << 2), (float)((v & 0x1F) << 3)};
+}
+
+}  // namespace
+
+void OrbUi::BlendPixel(int x, int y, uint32_t rgb, float a) {
+    if (x < 0 || y < 0 || x >= kBox || y >= kBox || a <= 0.0f) {
+        return;
+    }
+    uint16_t& px = globe_buf_[y * kBox + x];
+    Rgb c = Lerp(Unpack565(px), Hex(rgb), std::min(a, 1.0f));
+    px = Pack565((int)c.r, (int)c.g, (int)c.b);
+}
+
+void OrbUi::Dot(float px, float py, float radius, uint32_t rgb, float a) {
+    for (int yy = (int)(py - radius - 1); yy <= (int)(py + radius + 1); yy++) {
+        for (int xx = (int)(px - radius - 1); xx <= (int)(px + radius + 1); xx++) {
+            float d = std::hypot(xx + 0.5f - px, yy + 0.5f - py);
+            BlendPixel(xx, yy, rgb, a * std::clamp(radius + 0.5f - d, 0.0f, 1.0f));
+        }
+    }
+}
+
+// Elipse cheia; half = 1 so a metade de baixo (sorriso), -1 so a de cima
+void OrbUi::Ellipse(float px, float py, float rx, float ry, uint32_t rgb, int half) {
+    for (int yy = (int)(py - ry - 1); yy <= (int)(py + ry + 1); yy++) {
+        float fy = yy + 0.5f - py;
+        if ((half > 0 && fy < 0) || (half < 0 && fy > 0)) {
+            continue;
+        }
+        for (int xx = (int)(px - rx - 1); xx <= (int)(px + rx + 1); xx++) {
+            float fx = xx + 0.5f - px;
+            float e = std::sqrt((fx * fx) / (rx * rx) + (fy * fy) / (ry * ry));
+            BlendPixel(xx, yy, rgb, std::clamp((1.0f - e) * std::min(rx, ry) + 0.5f, 0.0f, 1.0f));
+        }
+    }
+}
+
+void OrbUi::PaintAmoeba() {
+    if (!amoeba_dist_) {
+        return;
+    }
+    const float cx = kCx - kBoxX, cy = kCy - kBoxY;
+    const float tau = 2.0f * (float)M_PI;
+    float frac = phase_ms_ / (float)pulse_period_ms_;
+    float breath = std::sin(tau * frac);
+    float body = kR * 0.74f * (1.0f + 0.06f * pulse_ * breath);
+
+    // Contorno de ameba: ondula com angle_; bracos dos lados e pes embaixo (y cresce para baixo)
+    float rt[256];
+    for (int i = 0; i < 256; i++) {
+        float th = i * tau / 256.0f;
+        float r = body * (1.0f + 0.05f * std::sin(7.0f * th + angle_ * 1.5f) + 0.03f * std::sin(3.0f * th - angle_ * 2.0f));
+        r += Bump(th, 0.30f, 0.16f, 13.0f) + Bump(th, (float)M_PI - 0.30f, 0.16f, 13.0f);
+        r += Bump(th, 1.30f, 0.13f, 11.0f) + Bump(th, (float)M_PI - 1.30f, 0.13f, 11.0f);
+        rt[i] = r;
+    }
+
+    // Corpo: preenchimento com luz de cima/esquerda e contorno escuro de ~3 px
+    const Rgb light = Hex(kAmoebaLight), shadow = Hex(kAmoebaShadow), line = Hex(kAmoebaLine);
+    for (int y = 0; y < kBox; y++) {
+        for (int x = 0; x < kBox; x++) {
+            int k = y * kBox + x;
+            float d = amoeba_dist_[k] * 0.25f, r = rt[amoeba_angle_[k]];
+            if (d > r + 1.0f) {
+                continue;
+            }
+            float dx = x + 0.5f - cx, dy = y + 0.5f - cy;
+            float shade = std::clamp(0.55f - (dx * 0.45f + dy * 0.6f) / (2.0f * body), 0.0f, 1.0f);
+            Rgb c = Lerp(shadow, light, shade);
+            float edge = r - d;
+            c = Lerp(c, line, std::clamp(3.2f - edge, 0.0f, 1.0f));
+            float cover = std::clamp(r + 1.0f - d, 0.0f, 1.0f);
+            Rgb under = Unpack565(globe_buf_[k]);
+            c = Lerp(under, c, cover);
+            globe_buf_[k] = Pack565((int)c.r, (int)c.g, (int)c.b);
+        }
+    }
+
+    // Manchas, com contorno fino
+    for (const Spot& s : kSpots) {
+        float sx = cx + s.x * body, sy = cy + s.y * body, sr = s.r * body;
+        Dot(sx, sy, sr + 1.2f, kAmoebaLine);
+        Dot(sx, sy, sr, s.color);
+    }
+
+    // Rosto: olhos e boca conforme o estado
+    float eye_y = cy - 0.14f * body, eye_dx = 0.30f * body, mouth_y = cy + 0.12f * body;
+    int state = last_state_;
+    auto happy_eye = [&](float ex) {  // olho fechado e feliz: curva para baixo
+        for (int i = -8; i <= 8; i++) {
+            float t = i / 8.0f;
+            Dot(ex + t * 0.12f * body, eye_y + 0.06f * body * t * t, 1.6f, kAmoebaLine);
+        }
+    };
+    auto open_eye = [&](float ex, float look) {
+        Ellipse(ex + look, eye_y, 0.065f * body, 0.10f * body, kAmoebaLine);
+        Dot(ex + look - 0.02f * body, eye_y - 0.035f * body, 0.025f * body, 0xFFFFFF);
+    };
+    auto x_eye = [&](float ex) {
+        for (int i = -6; i <= 6; i++) {
+            float t = i / 6.0f * 0.07f * body;
+            Dot(ex + t, eye_y + t, 1.5f, kAmoebaLine);
+            Dot(ex + t, eye_y - t, 1.5f, kAmoebaLine);
+        }
+    };
+    auto smile = [&](float open) {  // sorriso aberto com dentes em cima
+        float rx = 0.27f * body, ry = (0.06f + 0.16f * open) * body;
+        Ellipse(cx, mouth_y, rx, ry, kAmoebaLine, 1);
+        Ellipse(cx, mouth_y, rx - 2.5f, std::max(1.0f, ry - 2.5f), 0x7A2E3A, 1);
+        Ellipse(cx, mouth_y, rx - 2.5f, std::max(1.0f, (ry - 2.5f) * 0.38f), kAmoebaTeeth, 1);
+    };
+
+    switch (state) {
+        case kDeviceStateListening:
+            open_eye(cx - eye_dx, 0.0f);
+            open_eye(cx + eye_dx, 0.0f);
+            Ellipse(cx, mouth_y + 0.05f * body, 0.07f * body, 0.08f * body, kAmoebaLine);
+            Ellipse(cx, mouth_y + 0.05f * body, 0.045f * body, 0.055f * body, 0x7A2E3A);
+            break;
+        case kDeviceStateSpeaking: {
+            happy_eye(cx - eye_dx);
+            happy_eye(cx + eye_dx);
+            float talk = 0.5f + 0.5f * std::sin(tau * frac * 2.0f);
+            smile(talk);
+            break;
+        }
+        case kDeviceStateConnecting:
+        case kDeviceStateActivating:
+        case kDeviceStateUpgrading: {
+            float look = 0.04f * body * std::sin(angle_ * 3.0f);
+            open_eye(cx - eye_dx, look);
+            open_eye(cx + eye_dx, look);
+            for (int i = -6; i <= 6; i++) {
+                Dot(cx + i * 0.02f * body, mouth_y + 0.04f * body, 1.5f, kAmoebaLine);
+            }
+            break;
+        }
+        case kDeviceStateFatalError:
+            x_eye(cx - eye_dx);
+            x_eye(cx + eye_dx);
+            for (int i = -8; i <= 8; i++) {
+                float t = i / 8.0f;
+                Dot(cx + t * 0.16f * body, mouth_y + 0.10f * body - 0.06f * body * (1 - t * t), 1.6f, kAmoebaLine);
+            }
+            break;
+        default:
+            happy_eye(cx - eye_dx);
+            happy_eye(cx + eye_dx);
+            smile(1.0f);
+            break;
+    }
 }
 
 void OrbUi::ShowConfig(bool show) {

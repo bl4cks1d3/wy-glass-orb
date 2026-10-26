@@ -16,6 +16,7 @@ Tudo o que muda a aparência e o comportamento do orb sem mexer no código:
 
 | Grupo | Opções |
 | --- | --- |
+| Tipo de orb | Galeria com miniaturas animadas: globo holográfico, anéis orbitais, esfera de plasma, onda de voz, nuvem de partículas, pulso minimalista |
 | Identidade | Título da tela de informações, prefixo da rede do portal (`WyGlass-XXXX`), servidor padrão |
 | Ativação por voz | Liga/desliga, frases em inglês ("hey orb", "hi orb"), limiar |
 | Globo | Meridianos, pontos, velocidade base, cor das linhas fixas, brilho em volta, cor dos textos, gradientes do fundo e da esfera |
@@ -54,6 +55,37 @@ Editor das telas interativas que o servidor mostra com `self.screen.render` ([sc
 - **Telas salvas** ficam em `studio/layouts/<nome>.json`.
 
 A prévia é aproximada: a placa usa as fontes e o espaçamento do LVGL.
+
+## Tipos de orb
+
+| Tipo | id | Desenho | Usa |
+| --- | --- | --- | --- |
+| Globo holográfico | `globe` | Meridianos girando, paralelos e pontos de luz | Meridianos, pontos |
+| Anéis orbitais | `rings` | Três órbitas inclinadas com um cometa cada, em volta de um núcleo | — |
+| Esfera de plasma | `plasma` | Luz suave com ondas e redemoinho por dentro (calculada por pixel com tabelas) | — |
+| Onda de voz | `wave` | Três ondas circulares entrelaçadas | — |
+| Nuvem de partículas | `particles` | Esfera de pontos 3D inclinada, girando | Pontos (×3, até 300) |
+| Pulso minimalista | `pulse` | Núcleo que respira e dois anéis que se expandem no ritmo do pulso | Período do pulso |
+| Ameba | `amoeba` | Personagem verde com manchas, braços e pés; ondula e respira. Olhos e boca mudam com o estado: felizes (pronto), abertos com boca em "o" (ouvindo), boca mexendo (falando), olhando de lado (conectando), olhos em X (erro) | Velocidade e pulso; as cores do corpo são fixas |
+
+Cor, velocidade, brilho, pulso e texto de cada estado valem para todos os tipos de luz; a ameba usa só velocidade, pulso e texto. O tipo é escolhido na compilação: trocar exige compilar e gravar de novo.
+
+### Criar um tipo de orb
+
+Um tipo é um **pintor**: a cada quadro (~20 por segundo) ele escreve "luz" de 0 a 1 num quadrado de 192×192 em volta do globo, e o firmware pinta essa luz na cor do estado por cima do fundo. O mesmo pintor existe em C (placa) e em JavaScript (pré-visualização), com a mesma conta.
+
+1. **Registro do Studio** (`studio/server.py`, `STYLES`): `"meu_tipo": ("kMeuTipo", "Nome")`. O gerador acrescenta `kMeuTipo` ao `enum class Style` do cabeçalho.
+2. **Firmware** (`main/display/orb_ui.{h,cc}`):
+   - declare `void PaintMeuTipo();` no `orb_ui.h`;
+   - escreva o pintor no `orb_ui.cc` com as primitivas `Splat` (ponto), `Disc` (disco), `Glow` (brilho gaussiano), `Circle` (anel) e `AddLight`; centro em `kCx - kBoxX`, `kCy - kBoxY`, raio `kR`; animação por `angle_` (gira com a velocidade do estado) e `phase_ms_ / pulse_period_ms_` (ciclo do pulso);
+   - acrescente o `case` no `switch` do `RenderGlobe`;
+   - se o tipo quiser a esfera, os paralelos ou o contorno fixos, inclua-o em `kSphereFill`, `kParallels` ou `kOutline`.
+3. **Pré-visualização** (`studio/web/globe.js`, `STYLES`): uma entrada com `name`, `description`, as mesmas flags `sphere`/`parallels`/`outline` e `paint(p)` usando `p.splat`, `p.disc`, `p.glow`, `p.circle`, `p.angle` e `p.phase`.
+4. Reinicie o Studio: o tipo aparece na galeria.
+
+**Tipos em cores** (como a ameba): em vez de luz, o pintor desenha direto na imagem, depois do fundo. No firmware ele roda depois da composição em `RenderGlobe` e usa `BlendPixel`, `Dot` e `Ellipse` com cores RGB; no Studio a entrada tem `direct: true` e usa `p.blendRgb`, `p.dot` e `p.ellipse`. O estado atual está em `last_state_` (C) e `p.state` (JS), para mudar a expressão.
+
+Custo: o pintor roda no ESP32-S3 a cada 50 ms junto com áudio e Wi-Fi. Pontos e linhas (alguns milhares de `Splat`) são baratos; contas por pixel precisam de tabelas pré-calculadas no boot, como a esfera de plasma faz.
 
 ## Arquivos
 

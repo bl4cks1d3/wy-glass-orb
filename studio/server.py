@@ -33,7 +33,20 @@ SDKCONFIG_PATH = PROJECT_DIR / "sdkconfig"
 
 STATES = ["starting", "idle", "connecting", "listening", "speaking", "error"]
 
+# Tipos de orb: id no orb.json -> constante do firmware (orb_studio::Style) e nome na galeria.
+# Para criar um tipo novo: docs/studio.md, "Criar um tipo de orb".
+STYLES = {
+    "globe": ("kGlobe", "Globo holografico"),
+    "rings": ("kRings", "Aneis orbitais"),
+    "plasma": ("kPlasma", "Esfera de plasma"),
+    "wave": ("kWave", "Onda de voz"),
+    "particles": ("kParticles", "Nuvem de particulas"),
+    "pulse": ("kPulse", "Pulso minimalista"),
+    "amoeba": ("kAmoeba", "Ameba"),
+}
+
 DEFAULTS = {
+    "style": "globe",
     "title": "WY GLASS ORB",
     "ap_prefix": "WyGlass",
     "default_server": "",
@@ -98,7 +111,7 @@ def number(value, lo: float, hi: float, field: str, integer: bool = False):
 def validate(cfg: dict) -> dict:
     """Confere e normaliza a configuracao vinda da pagina. Campos ausentes usam o padrao."""
     merged = json.loads(json.dumps(DEFAULTS))
-    for key in ("title", "ap_prefix", "default_server", "offline_text"):
+    for key in ("style", "title", "ap_prefix", "default_server", "offline_text"):
         if key in cfg:
             merged[key] = cfg[key]
     for key in ("wake", "globe"):
@@ -106,7 +119,10 @@ def validate(cfg: dict) -> dict:
     for state in STATES:
         merged["states"][state].update((cfg.get("states") or {}).get(state) or {})
 
+    if merged["style"] not in STYLES:
+        raise ConfigError(f"tipo de orb desconhecido: {merged['style']}")
     out = {
+        "style": merged["style"],
         "title": ascii_text(merged["title"], 24, "titulo") or DEFAULTS["title"],
         "ap_prefix": ascii_text(merged["ap_prefix"], 20, "rede do portal"),
         "default_server": merged["default_server"].strip() if isinstance(merged["default_server"], str) else "",
@@ -212,6 +228,10 @@ def render_header(cfg: dict) -> str:
         "    uint32_t period_ms;  // periodo do pulso",
         "    const char* text;    // texto embaixo do globo (sem acentos: fonte Montserrat)",
         "};",
+        "",
+        "// Tipos de orb (um pintor para cada em orb_ui.cc)",
+        "enum class Style { " + ", ".join(const for const, _ in STYLES.values()) + " };",
+        f"constexpr Style kStyle = Style::{STYLES[cfg['style']][0]};",
         "",
         f"constexpr const char* kTitle = {c_str(cfg['title'])};",
         f"constexpr const char* kApPrefix = {c_str(cfg['ap_prefix'])};",
@@ -512,7 +532,8 @@ class Handler(BaseHTTPRequestHandler):
         path = self.path.split("?")[0]
         try:
             if path == "/api/config":
-                return self.send_json({"config": load_config(), "defaults": validate({})})
+                return self.send_json({"config": load_config(), "defaults": validate({}),
+                                       "styles": [{"id": k, "name": v[1]} for k, v in STYLES.items()]})
             if path == "/api/ports":
                 return self.send_json({"ports": list_ports()})
             if path == "/api/layouts":
